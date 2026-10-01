@@ -123,6 +123,19 @@ final class ProductRepository {
 		$order   = 'asc' === $this->context['order'] ? 'ASC' : 'DESC';
 		$orderby = $this->context['orderby'];
 
+		/*
+		 * Availability is always the first sort key. This must happen in SQL,
+		 * before LIMIT/OFFSET, so unavailable products are placed after all
+		 * available products across the complete result set and not merely at the
+		 * bottom of the current page.
+		 */
+		$stock_bucket = "CASE
+			WHEN {$lookup_alias}.product_id IS NULL THEN 1
+			WHEN {$lookup_alias}.stock_status = 'outofstock' THEN 1
+			WHEN {$lookup_alias}.stock_quantity IS NOT NULL AND {$lookup_alias}.stock_quantity <= 0 THEN 1
+			ELSE 0
+		END";
+
 		switch ( $orderby ) {
 			case 'price':
 				$primary = "CASE WHEN {$lookup_alias}.min_price IS NULL THEN 1 ELSE 0 END ASC, {$lookup_alias}.min_price {$order}";
@@ -145,7 +158,7 @@ final class ProductRepository {
 				break;
 		}
 
-		$clauses['orderby'] = $primary . ", {$wpdb->posts}.ID {$order}";
+		$clauses['orderby'] = $stock_bucket . " ASC, " . $primary . ", {$wpdb->posts}.ID {$order}";
 		$clauses['groupby'] = "{$wpdb->posts}.ID";
 
 		return $clauses;

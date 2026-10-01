@@ -1,4 +1,4 @@
-# Application API v2.0.1
+# Application API v2.0.2
 
 Base namespace:
 
@@ -33,12 +33,18 @@ The former plural query aliases `categories`, `brands`, and `tags` remain accept
 
 ### Variable-product card rule
 
-- A variable product not marked on sale does not load or iterate through its variations. Its synchronized minimum current price is read from WooCommerce's product lookup row. The parent image and parent stock information are used.
-- A variable product marked on sale loads its published variations.
-- Only active sale variations with `price < regular_price` are candidates.
-- The variation with the greatest exact discount ratio is selected.
-- When two or more candidates have the same discount ratio, the first variation in WooCommerce child order is selected.
-- The card's `price`, `regular_price`, `discount_percent`, `image`, `stock_quantity`, and `variation_name` represent the selected variation.
+- If a variable product is marked on sale, its published sale variations are checked and the variation with the greatest exact discount ratio supplies the card's `price`, `regular_price`, `discount_percent`, `image`, and `stock_quantity`.
+- If two sale variations have exactly the same discount ratio, the first one in WooCommerce variation order wins.
+- If a variable product is not marked on sale, its configured default variation supplies the card's `price`, `regular_price`, `image`, and `stock_quantity`.
+- If a store has an incomplete, deleted, or unpublished default variation, the first published variation is used as a defensive fallback.
+
+### Stock contract and ordering
+
+- `stock_quantity` is never `null`.
+- `0` means unavailable/out of stock.
+- A positive managed stock quantity is returned when WooCommerce tracks an exact quantity.
+- `1` means available when WooCommerce exposes availability but does not expose a positive numeric quantity, such as products with stock management disabled or backorders.
+- Available products are always sorted before unavailable products across the complete filtered result set. The requested `orderby` and `order` are then applied inside each availability group. This ordering occurs before pagination.
 
 ### Compact card fields
 
@@ -57,7 +63,31 @@ The list response intentionally excludes:
 
 `GET /products/{id}`
 
-The detail response also excludes `currency`, `slug`, `permalink`, `sale_price`, and `price_range`. Variation identifiers and attributes are currently retained on this endpoint so its final detail-page contract can be designed separately.
+The detail response excludes `currency`, `slug`, `permalink`, `sale_price`, `price_range`, `stock_status`, and `image_id`.
+
+For a variable product:
+
+- the top-level `price`, `regular_price`, `discount_percent`, `on_sale`, `stock_quantity`, and `image` always represent the default variation;
+- `default_variation` contains the default variation as a separate object;
+- `variations` contains every published variation in WooCommerce order.
+
+Each variation object contains exactly:
+
+```json
+{
+  "id": 100,
+  "name": "Product name - Black, 20",
+  "sku": "SKU-100",
+  "price": "4000000",
+  "regular_price": "5000000",
+  "discount_percent": 20,
+  "on_sale": true,
+  "stock_quantity": 3,
+  "image": "https://example.com/image.webp"
+}
+```
+
+For a non-variable product, `default_variation` is `null` and `variations` is an empty array.
 
 ## Home
 
