@@ -1,4 +1,4 @@
-# Application API v2
+# Application API v2.0.1
 
 Base namespace:
 
@@ -8,25 +8,56 @@ Base namespace:
 
 `GET /products`
 
-Supported query parameters:
+Canonical query parameters:
 
 - `page`, `per_page`
-- `search`: partial product title, parent SKU, or variation SKU
-- `type`: one slug or comma-separated slugs (`simple,variable`)
+- `search`: partial product title, parent SKU, or published variation SKU
+- `type`: exactly one product type slug such as `simple`, `variable`, `grouped`, or `external`
 - `on_sale`: `true` or `false`
-- `categories`, `brands`, `tags`: one ID or comma-separated IDs
+- `category`, `brand`, `tag`: one ID, a comma-separated list, or an array of IDs
 - `min_price`, `max_price`
 - `orderby`: `price`, `date`, `rating`, `id`, `title`, `popularity`
 - `order`: `asc`, `desc`
 
+If `type` is omitted, no product-type filter is applied and all published parent products are eligible.
+
 Examples:
 
-`/products?search=K10G&categories=350,352&on_sale=true&page=1&per_page=20`
+`/products?search=K10G&category=350,352&on_sale=true&page=1&per_page=20`
 
-`/products?brands=313&min_price=1000000&max_price=10000000&orderby=price&order=asc`
+`/products?brand=313&min_price=1000000&max_price=10000000&orderby=price&order=asc`
 
 Multiple IDs inside the same taxonomy use OR logic. Different filters use AND logic.
-For variable products, the response selects one variation for the card and returns its price, regular price, sale price, image, stock, SKU, attributes, and variation ID. A separate variation request is not required.
+
+The former plural query aliases `categories`, `brands`, and `tags` remain accepted temporarily for migration, but new clients should use the singular names.
+
+### Variable-product card rule
+
+- A variable product not marked on sale does not load or iterate through its variations. Its synchronized minimum current price is read from WooCommerce's product lookup row. The parent image and parent stock information are used.
+- A variable product marked on sale loads its published variations.
+- Only active sale variations with `price < regular_price` are candidates.
+- The variation with the greatest exact discount ratio is selected.
+- When two or more candidates have the same discount ratio, the first variation in WooCommerce child order is selected.
+- The card's `price`, `regular_price`, `discount_percent`, `image`, `stock_quantity`, and `variation_name` represent the selected variation.
+
+### Compact card fields
+
+The list response intentionally excludes:
+
+- `count`
+- `currency`
+- `slug`, `permalink`
+- `sale_price`, `price_range`
+- `variation_id`, `variation_sku`, `variation_attributes`
+- `stock_status`, `image_id`
+
+`price` is the current payable price. `regular_price` is the original price. Therefore the application can render the crossed-out original price without a separate `sale_price` field.
+
+## Product detail
+
+`GET /products/{id}`
+
+The detail response also excludes `currency`, `slug`, `permalink`, `sale_price`, and `price_range`. Variation identifiers and attributes are currently retained on this endpoint so its final detail-page contract can be designed separately.
 
 ## Home
 
@@ -44,7 +75,7 @@ Supported section types:
 
 Manage the JSON configuration from **WooCommerce > Application API**. Reordering the array reorders the app home page without an app update.
 
-A product section can use the same filters as `/products`, for example:
+A product section can use the same canonical filters as `/products`, for example:
 
 ```json
 {
@@ -53,7 +84,7 @@ A product section can use the same filters as `/products`, for example:
   "enabled": true,
   "title": "لپ‌تاپ‌ها",
   "query": {
-    "categories": [123],
+    "category": [123],
     "orderby": "popularity",
     "order": "desc",
     "per_page": 10

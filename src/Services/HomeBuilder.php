@@ -166,16 +166,17 @@ final class HomeBuilder {
 
 	private function products( array $section ): array {
 		$query = isset( $section['query'] ) && is_array( $section['query'] ) ? $section['query'] : array();
+		$type  = isset( $query['type'] ) ? trim( (string) $query['type'] ) : '';
 
 		$params = array(
 			'page'       => 1,
 			'per_page'   => min( 30, max( 1, absint( $query['per_page'] ?? 10 ) ) ),
 			'search'     => isset( $query['search'] ) ? sanitize_text_field( $query['search'] ) : '',
-			'types'      => Request::slugs( $query['type'] ?? array() ),
+			'type'       => '' === $type ? null : sanitize_key( $type ),
 			'on_sale'    => Request::nullable_boolean( $query['on_sale'] ?? null ),
-			'categories' => Request::ids( $query['categories'] ?? array() ),
-			'brands'     => Request::ids( $query['brands'] ?? array() ),
-			'tags'       => Request::ids( $query['tags'] ?? array() ),
+			'category'   => Request::ids( $query['category'] ?? ( $query['categories'] ?? array() ) ),
+			'brand'      => Request::ids( $query['brand'] ?? ( $query['brands'] ?? array() ) ),
+			'tag'        => Request::ids( $query['tag'] ?? ( $query['tags'] ?? array() ) ),
 			'min_price'  => isset( $query['min_price'] ) && '' !== $query['min_price'] ? max( 0, (float) $query['min_price'] ) : null,
 			'max_price'  => isset( $query['max_price'] ) && '' !== $query['max_price'] ? max( 0, (float) $query['max_price'] ) : null,
 			'orderby'    => in_array( $query['orderby'] ?? 'date', array( 'price', 'date', 'rating', 'id', 'title', 'popularity' ), true ) ? $query['orderby'] : 'date',
@@ -183,9 +184,15 @@ final class HomeBuilder {
 		);
 
 		$result = $this->repository->query( $params );
+		$data   = array();
+
+		foreach ( $result['products'] as $product ) {
+			$product_id = $product->get_id();
+			$data[]     = $this->formatter->format_card( $product, $result['lookup'][ $product_id ] ?? array() );
+		}
 
 		return array(
-			'data' => array_map( array( $this->formatter, 'format' ), $result['products'] ),
+			'data' => $data,
 			'meta' => array(
 				'total_items' => $result['total'],
 				'query'       => $params,
@@ -224,7 +231,6 @@ final class HomeBuilder {
 				return array(
 					'id'     => (int) $term->term_id,
 					'name'   => $term->name,
-					'slug'   => $term->slug,
 					'parent' => (int) $term->parent,
 					'count'  => (int) $term->count,
 					'image'  => $thumbnail_id ? ( wp_get_attachment_image_url( $thumbnail_id, 'woocommerce_thumbnail' ) ?: '' ) : '',

@@ -35,7 +35,7 @@ final class ProductController {
 			);
 		}
 
-		if ( $params['brands'] && ! Taxonomy::brand_taxonomy() ) {
+		if ( $params['brand'] && ! Taxonomy::brand_taxonomy() ) {
 			return new \WP_Error(
 				'app_api_brand_taxonomy_unavailable',
 				__( 'No supported product brand taxonomy was found on this store.', 'application-api' ),
@@ -44,13 +44,18 @@ final class ProductController {
 		}
 
 		$result = $this->repository->query( $params );
-		$data   = array_map( array( $this->formatter, 'format' ), $result['products'] );
+		$data   = array();
+
+		foreach ( $result['products'] as $product ) {
+			$product_id = $product->get_id();
+			$data[]     = $this->formatter->format_card( $product, $result['lookup'][ $product_id ] ?? array() );
+		}
+
 		$total_site_products = wp_count_posts( 'product' );
 		$total_site_products = isset( $total_site_products->publish ) ? (int) $total_site_products->publish : 0;
 
 		$payload = array(
 			'success'    => true,
-			'count'      => count( $data ),
 			'pagination' => array(
 				'current_page'        => $params['page'],
 				'per_page'            => $params['per_page'],
@@ -62,18 +67,17 @@ final class ProductController {
 			),
 			'filters'    => array(
 				'search'         => $params['search'] ?: null,
-				'types'          => $params['types'],
+				'type'            => $params['type'],
 				'on_sale'        => $params['on_sale'],
-				'categories'     => $params['categories'],
-				'brands'         => $params['brands'],
-				'tags'           => $params['tags'],
+				'category'       => $params['category'],
+				'brand'          => $params['brand'],
+				'tag'            => $params['tag'],
 				'min_price'      => $params['min_price'],
 				'max_price'      => $params['max_price'],
 				'orderby'        => $params['orderby'],
 				'order'          => $params['order'],
 				'brand_taxonomy' => Taxonomy::brand_taxonomy(),
 			),
-			'currency'   => $this->currency_data(),
 			'data'       => $data,
 		);
 
@@ -97,9 +101,8 @@ final class ProductController {
 
 		return Response::success(
 			array(
-				'success'  => true,
-				'currency' => $this->currency_data(),
-				'data'     => $this->formatter->format( $product ),
+				'success' => true,
+				'data'    => $this->formatter->format_detail( $product, $this->repository->lookup( $product->get_id() ) ),
 			)
 		);
 	}
@@ -122,16 +125,17 @@ final class ProductController {
 
 		$min_price = $request->get_param( 'min_price' );
 		$max_price = $request->get_param( 'max_price' );
+		$type      = trim( (string) $request->get_param( 'type' ) );
 
 		return array(
 			'page'       => max( 1, absint( $request->get_param( 'page' ) ?: 1 ) ),
 			'per_page'   => $per_page,
 			'search'     => sanitize_text_field( (string) $request->get_param( 'search' ) ),
-			'types'      => Request::slugs( $request->get_param( 'type' ) ),
+			'type'        => '' === $type ? null : sanitize_key( $type ),
 			'on_sale'    => Request::nullable_boolean( $request->get_param( 'on_sale' ) ),
-			'categories' => Request::ids( $request->get_param( 'categories' ) ),
-			'brands'     => Request::ids( $request->get_param( 'brands' ) ),
-			'tags'       => Request::ids( $request->get_param( 'tags' ) ),
+			'category'   => Request::ids( $this->canonical_or_legacy_param( $request, 'category', 'categories' ) ),
+			'brand'      => Request::ids( $this->canonical_or_legacy_param( $request, 'brand', 'brands' ) ),
+			'tag'        => Request::ids( $this->canonical_or_legacy_param( $request, 'tag', 'tags' ) ),
 			'min_price'  => null === $min_price || '' === $min_price ? null : max( 0, (float) $min_price ),
 			'max_price'  => null === $max_price || '' === $max_price ? null : max( 0, (float) $max_price ),
 			'orderby'    => $orderby,
@@ -139,13 +143,15 @@ final class ProductController {
 		);
 	}
 
-	private function currency_data(): array {
-		return array(
-			'code'               => get_woocommerce_currency(),
-			'symbol'             => get_woocommerce_currency_symbol(),
-			'decimal_separator'  => wc_get_price_decimal_separator(),
-			'thousand_separator' => wc_get_price_thousand_separator(),
-			'decimals'           => wc_get_price_decimals(),
-		);
+	/**
+	 * Singular public parameters are canonical. Plural aliases are accepted to
+	 * avoid breaking an already-installed Flutter build during migration.
+	 */
+	private function canonical_or_legacy_param( \WP_REST_Request $request, string $canonical, string $legacy ) {
+		if ( $request->has_param( $canonical ) ) {
+			return $request->get_param( $canonical );
+		}
+
+		return $request->get_param( $legacy );
 	}
 }

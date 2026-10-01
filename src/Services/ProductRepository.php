@@ -43,8 +43,11 @@ final class ProductRepository {
 			$this->query_token = '';
 		}
 
-		$products = array();
-		foreach ( $query->posts as $product_id ) {
+		$product_ids = array_map( 'absint', $query->posts );
+		$lookup      = $this->lookup_for_ids( $product_ids );
+		$products    = array();
+
+		foreach ( $product_ids as $product_id ) {
 			$product = wc_get_product( $product_id );
 			if ( $product ) {
 				$products[] = $product;
@@ -53,9 +56,18 @@ final class ProductRepository {
 
 		return array(
 			'products' => $products,
+			'lookup'   => $lookup,
 			'total'    => (int) $query->found_posts,
 			'pages'    => (int) $query->max_num_pages,
 		);
+	}
+
+	/**
+	 * Returns one parent-product lookup row without loading its variations.
+	 */
+	public function lookup( int $product_id ): array {
+		$rows = $this->lookup_for_ids( array( $product_id ) );
+		return $rows[ $product_id ] ?? array();
 	}
 
 	public function filter_clauses( array $clauses, \WP_Query $query ): array {
@@ -86,6 +98,7 @@ final class ProductRepository {
 							ON app_api_variation_lookup.product_id = app_api_variation.ID
 						WHERE app_api_variation.post_parent = {$wpdb->posts}.ID
 							AND app_api_variation.post_type = 'product_variation'
+							AND app_api_variation.post_status = 'publish'
 							AND app_api_variation_lookup.sku LIKE %s
 					)
 				) ",
@@ -141,42 +154,42 @@ final class ProductRepository {
 	private function build_tax_query( array $params ): array {
 		$queries = array();
 
-		if ( $params['categories'] ) {
+		if ( $params['category'] ) {
 			$queries[] = array(
 				'taxonomy'         => 'product_cat',
 				'field'            => 'term_id',
-				'terms'            => $params['categories'],
+				'terms'            => $params['category'],
 				'operator'         => 'IN',
 				'include_children' => true,
 			);
 		}
 
-		if ( $params['tags'] ) {
+		if ( $params['tag'] ) {
 			$queries[] = array(
 				'taxonomy' => 'product_tag',
 				'field'    => 'term_id',
-				'terms'    => $params['tags'],
+				'terms'    => $params['tag'],
 				'operator' => 'IN',
 			);
 		}
 
-		if ( $params['brands'] ) {
+		if ( $params['brand'] ) {
 			$brand_taxonomy = Taxonomy::brand_taxonomy();
 			if ( $brand_taxonomy ) {
 				$queries[] = array(
 					'taxonomy' => $brand_taxonomy,
 					'field'    => 'term_id',
-					'terms'    => $params['brands'],
+					'terms'    => $params['brand'],
 					'operator' => 'IN',
 				);
 			}
 		}
 
-		if ( $params['types'] ) {
+		if ( $params['type'] ) {
 			$queries[] = array(
 				'taxonomy' => 'product_type',
 				'field'    => 'slug',
-				'terms'    => $params['types'],
+				'terms'    => array( $params['type'] ),
 				'operator' => 'IN',
 			);
 		}
@@ -186,5 +199,35 @@ final class ProductRepository {
 		}
 
 		return $queries;
+	}
+
+	/**
+	 * Fetches lookup data for the current page in one query, avoiding an N+1
+	 * lookup query and avoiding variation loading for non-sale variable cards.
+	 */
+	private function lookup_for_ids( array $product_ids ): array {
+		$product_ids = array_values( array_filter( array_unique( array_map( 'absint', $product_ids ) ) ) );
+		if ( ! $product_ids ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$table        = $wpdb->prefix . 'wc_product_meta_lookup';
+		$placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
+		$sql          = "SELECT product_id, sku, min_price, max_price, stock_quantity, stock_status, onsale
+			FROM {$table}
+			WHERE product_id IN ({$placeholders})";
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $product_ids ), ARRAY_A );
+		$map  = array();
+
+		foreach ( $rows as $row ) {
+			$product_id         = (int) $row['product_id'];
+			$map[ $product_id ] = $row;
+		}
+
+		return $map;
 	}
 }

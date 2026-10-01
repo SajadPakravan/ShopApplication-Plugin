@@ -46,7 +46,6 @@ final class Taxonomy {
 				return array(
 					'id'   => (int) $term->term_id,
 					'name' => $term->name,
-					'slug' => $term->slug,
 				);
 			},
 			$terms

@@ -71,23 +71,55 @@ final class Routes {
 				'type'              => 'string',
 				'sanitize_callback' => 'sanitize_text_field',
 			),
-			'type'       => array( 'description' => 'Product type slug or comma-separated slugs.' ),
-			'on_sale'    => array( 'description' => 'true or false.' ),
-			'categories' => array( 'description' => 'Category ID or comma-separated category IDs.' ),
-			'brands'     => array( 'description' => 'Brand ID or comma-separated brand IDs.' ),
-			'tags'       => array( 'description' => 'Tag ID or comma-separated tag IDs.' ),
-			'min_price'  => array( 'type' => 'number', 'minimum' => 0 ),
-			'max_price'  => array( 'type' => 'number', 'minimum' => 0 ),
-			'orderby'    => array(
+			'type' => array(
+				'type'              => 'string',
+				'description'       => 'One product type slug, for example simple or variable. Omit it to include every published product type.',
+				'sanitize_callback' => 'sanitize_key',
+				'validate_callback' => array( $this, 'validate_product_type' ),
+			),
+			'on_sale' => array(
+				'description' => 'true or false.',
+			),
+			'category' => array(
+				'description' => 'One category ID, a comma-separated list, or an array of category IDs.',
+			),
+			'brand' => array(
+				'description' => 'One brand ID, a comma-separated list, or an array of brand IDs.',
+			),
+			'tag' => array(
+				'description' => 'One tag ID, a comma-separated list, or an array of tag IDs.',
+			),
+			'min_price' => array(
+				'type'    => 'number',
+				'minimum' => 0,
+			),
+			'max_price' => array(
+				'type'    => 'number',
+				'minimum' => 0,
+			),
+			'orderby' => array(
 				'default' => 'date',
 				'type'    => 'string',
 				'enum'    => array( 'price', 'date', 'rating', 'id', 'title', 'popularity' ),
 			),
-			'order'      => array(
+			'order' => array(
 				'default' => 'desc',
 				'type'    => 'string',
 				'enum'    => array( 'asc', 'desc' ),
 			),
 		);
+	}
+
+	public function validate_product_type( $value ): bool {
+		if ( null === $value || '' === trim( (string) $value ) ) {
+			return true;
+		}
+
+		if ( is_array( $value ) || false !== strpos( (string) $value, ',' ) ) {
+			return false;
+		}
+
+		$type = sanitize_key( (string) $value );
+		return '' !== $type && $type === (string) $value;
 	}
 }
