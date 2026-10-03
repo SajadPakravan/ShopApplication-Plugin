@@ -21,22 +21,15 @@ final class HomeController {
 			return Response::woocommerce_unavailable();
 		}
 
-		$ttl      = max( 0, (int) get_option( Config::OPTION_HOME_CACHE, Config::DEFAULT_HOME_CACHE ) );
-		$key      = Cache::home_key();
-		$payload  = $ttl > 0 ? get_transient( $key ) : false;
-		$cache_hit= is_array( $payload );
+		$ttl       = max( 0, (int) get_option( Config::OPTION_HOME_CACHE, Config::DEFAULT_HOME_CACHE ) );
+		$key       = Cache::home_key();
+		$payload   = $ttl > 0 ? get_transient( $key ) : false;
+		$cache_hit = is_array( $payload );
 
 		if ( ! $cache_hit ) {
 			$payload = array(
-				'success'      => true,
-				'schema_version'=> 1,
-				'generated_at' => gmdate( 'c' ),
-				'currency'     => array(
-					'code'     => get_woocommerce_currency(),
-					'symbol'   => get_woocommerce_currency_symbol(),
-					'decimals' => wc_get_price_decimals(),
-				),
-				'sections'     => $this->builder->build(),
+				'success'  => true,
+				'sections' => $this->builder->build(),
 			);
 
 			if ( $ttl > 0 ) {

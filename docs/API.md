@@ -1,4 +1,4 @@
-# Application API v2.0.3
+# Application API v2.0.4
 
 Base namespace:
 
@@ -127,40 +127,56 @@ The repeated `visible` entry in the requested field list is represented once bec
 
 `GET /home`
 
-The response uses a `sections` array. Array order is intentional and is the Flutter render order. JSON object key order should not be used as a layout contract.
+The top-level response is intentionally compact:
+
+```json
+{
+  "success": true,
+  "sections": []
+}
+```
+
+The removed top-level fields are `schema_version`, `currency`, and `generated_at`.
+
+The response uses a `sections` array. Array order is intentional and is the exact Flutter render order. Reordering the section configuration reorders the application home page without an application update.
 
 Supported section types:
 
 - `banner_slider`
+- `promo_banners`
+- `action_menu`
 - `menu`
 - `products`
 - `categories`
+- `brands`
+- `faq`
 - `custom`
 
-Manage the JSON configuration from **WooCommerce > Application API**. Reordering the array reorders the app home page without an app update.
+For Yademan System, version 2.0.4 includes a preset matching the current public homepage order:
 
-A product section can use the same canonical filters as `/products`, for example:
+1. hero banner slider;
+2. quick-action icon menu;
+3. amazing offers;
+4. special categories;
+5. latest products;
+6. computer and accessories products;
+7. computer and hardware promotional banners;
+8. laptop and accessories products;
+9. speaker products;
+10. shop by category;
+11. popular brands;
+12. smartwatch promotional banner;
+13. frequently asked questions.
 
-```json
-{
-  "id": "laptops",
-  "type": "products",
-  "enabled": true,
-  "title": "لپ‌تاپ‌ها",
-  "query": {
-    "category": [123],
-    "orderby": "popularity",
-    "order": "desc",
-    "per_page": 10
-  },
-  "layout": {
-    "component": "product_carousel",
-    "direction": "horizontal"
-  }
-}
-```
+The Yademan preset resolves category and brand references by their names at runtime rather than hard-coding term IDs. Other WooCommerce stores receive the generic preset and can use the same section engine.
 
-The menu section reads the WordPress menu location named **Application API home menu**.
+Product sections accept the same filters as `/products`. They may also resolve terms by `category_names`, `category_slugs`, `brand_names`, `brand_slugs`, `tag_names`, or `tag_slugs` inside the server-side section configuration.
+
+Category and brand items contain `id`, `name`, `parent`, `count`, the original/full-quality `image`, and a normalized app `action`. Common WooCommerce brand-image metadata formats are detected automatically.
+
+The `faq` section can read accordion items from the WordPress front page. It supports common Woodmart/WPBakery FAQ shortcodes and HTML `<details>` elements, with configured fallback questions when the page builder content cannot be parsed.
+
+Manage the JSON configuration from **WooCommerce > Application API**.
 
 ## Extension hooks
 

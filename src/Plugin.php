@@ -29,6 +29,8 @@ final class Plugin {
 
 		$this->booted = true;
 
+		$this->maybe_upgrade_home_preset();
+
 		add_action( 'init', array( $this, 'register_menu_location' ) );
 		add_action( 'rest_api_init', array( new Routes(), 'register' ) );
 
@@ -65,6 +67,60 @@ final class Plugin {
 		<?php
 	}
 
+	private function maybe_upgrade_home_preset(): void {
+		if ( ! Config::uses_yademan_preset() ) {
+			return;
+		}
+
+		$raw      = get_option( Config::OPTION_HOME_SECTIONS, '' );
+		$sections = is_string( $raw ) && $raw ? json_decode( $raw, true ) : null;
+
+		if ( $raw && ! $this->is_legacy_home_configuration( $sections ) ) {
+			return;
+		}
+
+		$encoded = wp_json_encode(
+			Config::default_home_sections(),
+			JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT
+		);
+
+		if ( is_string( $encoded ) ) {
+			update_option( Config::OPTION_HOME_SECTIONS, $encoded, false );
+			update_option( Config::OPTION_HOME_PRESET_VERSION, APP_API_VERSION, false );
+			Cache::bump_home_version();
+		}
+	}
+
+	private function is_legacy_home_configuration( $sections ): bool {
+		if ( ! is_array( $sections ) || 5 !== count( $sections ) ) {
+			return false;
+		}
+
+		$ids = array();
+		foreach ( $sections as $section ) {
+			if ( ! is_array( $section ) || empty( $section['id'] ) ) {
+				return false;
+			}
+			$ids[] = sanitize_key( $section['id'] );
+		}
+
+		return array(
+			'banner_slider',
+			'main_menu',
+			'amazing_offers',
+			'special_categories',
+			'latest_products',
+		) === $ids;
+	}
+
+	public function bump_home_for_front_page( int $post_id, $post, bool $update ): void {
+		if ( wp_is_post_revision( $post_id ) || (int) get_option( 'page_on_front' ) !== $post_id ) {
+			return;
+		}
+
+		Cache::bump_home_version();
+	}
+
 	private function register_cache_invalidation_hooks(): void {
 		$events = array(
 			'woocommerce_new_product',
@@ -83,6 +139,7 @@ final class Plugin {
 		add_action( 'edited_term', array( Cache::class, 'bump_for_product_term' ), 10, 3 );
 		add_action( 'delete_term', array( Cache::class, 'bump_for_product_term' ), 10, 3 );
 		add_action( 'wp_update_nav_menu', array( Cache::class, 'bump_home_version' ) );
+		add_action( 'save_post_page', array( $this, 'bump_home_for_front_page' ), 10, 3 );
 		add_action( 'update_option_' . Config::OPTION_HOME_SECTIONS, array( Cache::class, 'bump_home_version' ) );
 		add_action( 'update_option_' . Config::OPTION_HOME_BANNERS, array( Cache::class, 'bump_home_version' ) );
 	}

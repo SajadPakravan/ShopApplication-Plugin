@@ -14,12 +14,28 @@ final class Config {
 	public const OPTION_HOME_BANNERS  = 'app_api_home_banners_json';
 	public const OPTION_HOME_CACHE    = 'app_api_home_cache_ttl';
 	public const OPTION_CACHE_VERSION = 'app_api_home_cache_version';
+	public const OPTION_HOME_PRESET_VERSION = 'app_api_home_preset_version';
 
 	/**
-	 * The order of this array is the render order in the Flutter application.
-	 * Each item can be overridden from WooCommerce > Application API.
+	 * The array order is the exact render order in the Flutter application.
+	 * Yademan System receives a preset mirroring its current public homepage.
+	 * Every other store receives a compact generic WooCommerce preset and may
+	 * customize the same section contract from WooCommerce > Application API.
 	 */
 	public static function default_home_sections(): array {
+		return self::uses_yademan_preset()
+			? self::yademan_home_sections()
+			: self::generic_home_sections();
+	}
+
+	public static function uses_yademan_preset(): bool {
+		$host = function_exists( 'home_url' ) ? wp_parse_url( home_url( '/' ), PHP_URL_HOST ) : '';
+		$host = strtolower( (string) $host );
+
+		return 'yademansystem.ir' === $host || 'www.yademansystem.ir' === $host;
+	}
+
+	private static function generic_home_sections(): array {
 		return array(
 			array(
 				'id'      => 'banner_slider',
@@ -50,10 +66,10 @@ final class Config {
 				'enabled' => true,
 				'title'   => 'پیشنهادهای شگفت‌انگیز',
 				'query'   => array(
-					'on_sale' => true,
-					'orderby' => 'date',
-					'order'   => 'desc',
-					'per_page'=> 10,
+					'on_sale'  => true,
+					'orderby'  => 'date',
+					'order'    => 'desc',
+					'per_page' => 10,
 				),
 				'layout'  => array(
 					'component' => 'product_carousel',
@@ -83,13 +99,274 @@ final class Config {
 				'enabled' => true,
 				'title'   => 'جدیدترین محصولات',
 				'query'   => array(
-					'orderby' => 'date',
-					'order'   => 'desc',
-					'per_page'=> 10,
+					'orderby'  => 'date',
+					'order'    => 'desc',
+					'per_page' => 10,
 				),
 				'layout'  => array(
 					'component' => 'product_carousel',
 					'direction' => 'horizontal',
+				),
+			),
+		);
+	}
+
+	private static function yademan_home_sections(): array {
+		$uploads = 'https://yademansystem.ir/wp-content/uploads/';
+
+		return array(
+			array(
+				'id'      => 'hero_banners',
+				'type'    => 'banner_slider',
+				'enabled' => true,
+				'title'   => '',
+				'data'    => array(
+					array(
+						'id'     => 'laptop_banner',
+						'title'  => 'لپ‌تاپ',
+						'image'  => $uploads . '2026/06/YademanSystem_banner_Laptop.webp',
+						'action' => array( 'type' => 'category', 'name' => 'لپ‌تاپ' ),
+					),
+					array(
+						'id'     => 'speaker_banner',
+						'title'  => 'اسپیکر',
+						'image'  => $uploads . '2026/06/YademanSystem_banner_Speaker.webp',
+						'action' => array( 'type' => 'category', 'name' => 'اسپیکر' ),
+					),
+				),
+				'layout'  => array(
+					'component'    => 'banner_slider',
+					'aspect_ratio' => 3.55,
+					'autoplay'     => true,
+				),
+			),
+			array(
+				'id'      => 'quick_actions',
+				'type'    => 'action_menu',
+				'enabled' => true,
+				'title'   => '',
+				'data'    => array(
+					array( 'id' => 'application', 'title' => 'اپلیکیشن فروشگاه', 'image' => $uploads . '2023/02/33f94db0e93a29b08b5c45d7932dbb114791155d_1658329987.png', 'action' => array( 'type' => 'app_download' ) ),
+					array( 'id' => 'sale', 'title' => 'حراجی', 'image' => $uploads . '2023/02/258db5bf0ff7b28dbae1bfb3dfaa71bfff32faf9_1654679397.png', 'action' => array( 'type' => 'products', 'on_sale' => true ) ),
+					array( 'id' => 'purchase_consulting', 'title' => 'مشاوره خرید', 'image' => $uploads . '2023/02/6c69096a524add2d4646cd162dfa5f66d4ddceac_1668952039.png', 'action' => array( 'type' => 'purchase_consulting' ) ),
+					array( 'id' => 'goods_order', 'title' => 'سفارش اجناس', 'image' => $uploads . '2023/02/17bb6daa07ae2ec11867fb7320ed6f79b26f1f4b_1648897081.png', 'action' => array( 'type' => 'goods_order' ) ),
+					array( 'id' => 'assembly_order', 'title' => 'سفارش مونتاژ', 'image' => $uploads . '2023/02/d0dc31c892be8cf1408e4e14580b3f479da66bd1_1648897133.png', 'action' => array( 'type' => 'assembly_order' ) ),
+					array( 'id' => 'repair_order', 'title' => 'سفارش تعمیرات', 'image' => $uploads . '2023/02/d919c238a583cacd2048a254e5623f81dd11ab24_16736372.png', 'action' => array( 'type' => 'repair_order' ) ),
+					array( 'id' => 'return_request', 'title' => 'درخواست مرجوعی', 'image' => $uploads . '2023/02/f18a182f7c300af9ce3eb8f47201ef340fc87eb3_1670930133.png', 'action' => array( 'type' => 'return_request' ) ),
+					array( 'id' => 'store_payment', 'title' => 'پرداخت فروشگاه', 'image' => $uploads . '2023/02/ac127167132653d14c758748b07824a6a7643a31_1648897095.png', 'action' => array( 'type' => 'store_payment' ) ),
+					array( 'id' => 'survey', 'title' => 'نظرسنجی فروشگاه', 'image' => $uploads . '2023/02/6b21cc5a4ebe6332b778a2f4725ed3fdaa78e014_1673693837.png', 'action' => array( 'type' => 'survey' ) ),
+					array( 'id' => 'more', 'title' => 'بیشتر', 'image' => '', 'action' => array( 'type' => 'more' ) ),
+				),
+				'layout'  => array(
+					'component' => 'icon_menu',
+					'columns'   => 5,
+					'direction' => 'horizontal',
+				),
+			),
+			array(
+				'id'      => 'amazing_offers',
+				'type'    => 'products',
+				'enabled' => true,
+				'title'   => 'پیشنهاد شگفت‌انگیز',
+				'action'  => array( 'type' => 'products', 'on_sale' => true ),
+				'query'   => array(
+					'on_sale'  => true,
+					'orderby'  => 'date',
+					'order'    => 'desc',
+					'per_page' => 10,
+				),
+				'layout'  => array(
+					'component' => 'product_carousel',
+					'direction' => 'horizontal',
+				),
+			),
+			array(
+				'id'      => 'special_categories',
+				'type'    => 'categories',
+				'enabled' => true,
+				'title'   => 'دسته‌بندی‌های ویژه',
+				'config'  => array(
+					'include_names' => array( 'لپ‌تاپ', 'کامپیوتر و تجهیزات جانبی', 'اسپیکر', 'هدفون و هندزفری', 'تجهیزات ذخیره‌سازی' ),
+					'hide_empty'    => false,
+				),
+				'layout'  => array(
+					'component' => 'category_grid',
+					'columns'   => 5,
+				),
+			),
+			array(
+				'id'      => 'latest_products',
+				'type'    => 'products',
+				'enabled' => true,
+				'title'   => 'جدیدترین محصولات',
+				'action'  => array( 'type' => 'products', 'orderby' => 'date', 'order' => 'desc' ),
+				'query'   => array(
+					'orderby'  => 'date',
+					'order'    => 'desc',
+					'per_page' => 24,
+				),
+				'layout'  => array(
+					'component' => 'product_carousel',
+					'direction' => 'horizontal',
+				),
+			),
+			array(
+				'id'      => 'computer_products',
+				'type'    => 'products',
+				'enabled' => true,
+				'title'   => 'کامپیوتر و تجهیزات جانبی',
+				'action'  => array( 'type' => 'category', 'name' => 'کامپیوتر و تجهیزات جانبی' ),
+				'query'   => array(
+					'category_names' => array( 'کامپیوتر و تجهیزات جانبی' ),
+					'orderby'        => 'date',
+					'order'          => 'desc',
+					'per_page'       => 10,
+				),
+				'layout'  => array(
+					'component' => 'product_carousel',
+					'direction' => 'horizontal',
+				),
+			),
+			array(
+				'id'      => 'computer_promotions',
+				'type'    => 'promo_banners',
+				'enabled' => true,
+				'title'   => '',
+				'data'    => array(
+					array(
+						'id'     => 'computer_accessories_banner',
+						'title'  => 'لوازم جانبی کامپیوتر',
+						'image'  => $uploads . '2026/07/YademanSystem_banner_computer.webp',
+						'action' => array( 'type' => 'category', 'name' => 'کامپیوتر و تجهیزات جانبی' ),
+					),
+					array(
+						'id'     => 'hardware_banner',
+						'title'  => 'سخت‌افزار',
+						'image'  => $uploads . '2026/07/YademanSystem_banner_hardware.webp',
+						'action' => array( 'type' => 'category', 'name' => 'سخت‌افزار' ),
+					),
+				),
+				'layout'  => array(
+					'component' => 'banner_grid',
+					'columns'   => 2,
+				),
+			),
+			array(
+				'id'      => 'laptop_products',
+				'type'    => 'products',
+				'enabled' => true,
+				'title'   => 'لپ‌تاپ و لوازم جانبی',
+				'action'  => array( 'type' => 'category', 'name' => 'لپ‌تاپ' ),
+				'query'   => array(
+					'category_names' => array( 'لپ‌تاپ' ),
+					'orderby'        => 'date',
+					'order'          => 'desc',
+					'per_page'       => 10,
+				),
+				'layout'  => array(
+					'component' => 'product_carousel',
+					'direction' => 'horizontal',
+				),
+			),
+			array(
+				'id'      => 'speaker_products',
+				'type'    => 'products',
+				'enabled' => true,
+				'title'   => 'انواع اسپیکر',
+				'action'  => array( 'type' => 'category', 'name' => 'اسپیکر' ),
+				'query'   => array(
+					'category_names' => array( 'اسپیکر' ),
+					'orderby'        => 'date',
+					'order'          => 'desc',
+					'per_page'       => 10,
+				),
+				'layout'  => array(
+					'component' => 'product_carousel',
+					'direction' => 'horizontal',
+				),
+			),
+			array(
+				'id'      => 'shop_by_category',
+				'type'    => 'categories',
+				'enabled' => true,
+				'title'   => 'خرید بر اساس دسته‌بندی',
+				'config'  => array(
+					'include_names' => array(
+						'لوازم جانبی لپ‌تاپ',
+						'پایه خنک‌کننده لپ‌تاپ',
+						'کیبور و ماوس',
+						'سخت‌افزار',
+						'اسپیکر بی‌سیم',
+						'گوشی موبایل',
+						'لوازم جانبی موبایل',
+						'هندزفری',
+						'هارد',
+						'تجهیزات شبکه',
+						'ماشین‌های اداری',
+						'تجهیزات بازی',
+						'کیف، کوله و کاور',
+						'تلویزیون',
+						'ساعت هوشمند',
+						'تمیز کننده',
+					),
+					'hide_empty' => false,
+				),
+				'layout'  => array(
+					'component' => 'category_grid',
+					'columns'   => 4,
+				),
+			),
+			array(
+				'id'      => 'popular_brands',
+				'type'    => 'brands',
+				'enabled' => true,
+				'title'   => 'محبوب‌ترین برندها',
+				'config'  => array(
+					'include_names' => array( 'آئولا', 'اچ‌پی', 'ارلدام', 'انزو', 'ایسوس', 'تسکو', 'سامسونگ', 'سیلیکون پاور', 'فندا', 'لنوو' ),
+					'hide_empty'    => false,
+				),
+				'layout'  => array(
+					'component' => 'brand_carousel',
+					'direction' => 'horizontal',
+				),
+			),
+			array(
+				'id'      => 'smartwatch_banner',
+				'type'    => 'promo_banners',
+				'enabled' => true,
+				'title'   => '',
+				'data'    => array(
+					array(
+						'id'     => 'smartwatch',
+						'title'  => 'انواع ساعت‌های هوشمند',
+						'image'  => $uploads . '2026/07/YademanSystem_banner_smartwatch-scaled.webp',
+						'action' => array( 'type' => 'category', 'name' => 'ساعت هوشمند' ),
+					),
+				),
+				'layout'  => array(
+					'component'    => 'wide_banner',
+					'aspect_ratio' => 4.0,
+				),
+			),
+			array(
+				'id'      => 'faq',
+				'type'    => 'faq',
+				'enabled' => true,
+				'title'   => 'سوالات متداول',
+				'config'  => array(
+					'source' => 'front_page',
+				),
+				'data'    => array(
+					array( 'question' => 'چطور میتوانم سفارشم را پیگیری کنم؟', 'answer' => '' ),
+					array( 'question' => 'میتوانم سفارشم را بصورت اقساطی (اعتباری) پرداخت کنم؟', 'answer' => '' ),
+					array( 'question' => 'چگونه ارسال رایگان داشته باشم؟', 'answer' => '' ),
+					array( 'question' => 'چگونه ثبت سفارش انجام بدم؟', 'answer' => '' ),
+					array( 'question' => 'نحوه ارسال سفارشات چگونه است؟', 'answer' => '' ),
+					array( 'question' => 'آیا امکان مرجوع کردن سفارش وجود دارد؟', 'answer' => '' ),
+					array( 'question' => 'آیا امکان لغو سفارش قبل از ارسال آن وجود دارد؟', 'answer' => '' ),
+				),
+				'layout'  => array(
+					'component' => 'accordion',
 				),
 			),
 		);
