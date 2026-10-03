@@ -72,10 +72,16 @@ final class Plugin {
 			return;
 		}
 
-		$raw      = get_option( Config::OPTION_HOME_SECTIONS, '' );
-		$sections = is_string( $raw ) && $raw ? json_decode( $raw, true ) : null;
+		$raw             = get_option( Config::OPTION_HOME_SECTIONS, '' );
+		$sections        = is_string( $raw ) && $raw ? json_decode( $raw, true ) : null;
+		$preset_version  = (string) get_option( Config::OPTION_HOME_PRESET_VERSION, '' );
+		$is_legacy       = $this->is_legacy_home_configuration( $sections );
+		$is_old_preset   = '' !== $preset_version && version_compare( $preset_version, APP_API_VERSION, '<' );
 
-		if ( $raw && ! $this->is_legacy_home_configuration( $sections ) ) {
+		// Empty/legacy configurations and plugin-managed older Yademan presets are
+		// refreshed so the installed endpoint immediately matches the new contract.
+		// A custom configuration with no preset marker is left untouched.
+		if ( $raw && ! $is_legacy && ! $is_old_preset ) {
 			return;
 		}
 

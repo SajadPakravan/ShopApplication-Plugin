@@ -49,14 +49,13 @@ final class HomeBuilder {
 
 	private function resolve_section( array $section, int $position ): ?array {
 		$type = isset( $section['type'] ) ? sanitize_key( $section['type'] ) : '';
-		$id   = isset( $section['id'] ) ? sanitize_key( $section['id'] ) : $type . '_' . $position;
 
+		// The response intentionally has no section ID or layout hints. The app
+		// chooses its renderer from `type`, and the array order is the render order.
 		$base = array(
-			'id'       => $id,
 			'type'     => $type,
 			'position' => $position,
 			'title'    => isset( $section['title'] ) ? sanitize_text_field( $section['title'] ) : '',
-			'layout'   => isset( $section['layout'] ) && is_array( $section['layout'] ) ? $this->sanitize_array( $section['layout'] ) : array(),
 		);
 
 		if ( ! empty( $section['action'] ) && is_array( $section['action'] ) ) {
@@ -78,9 +77,10 @@ final class HomeBuilder {
 				return $base;
 
 			case 'products':
-				$product_data = $this->products( $section );
-				$base['data'] = $product_data['data'];
-				$base['meta'] = $product_data['meta'];
+				$base['data'] = $this->products( $section );
+				if ( ! empty( $section['view_all'] ) && is_array( $section['view_all'] ) ) {
+					$base['view_all'] = $this->view_all( $section['view_all'] );
+				}
 				return $base;
 
 			case 'categories':
@@ -89,10 +89,6 @@ final class HomeBuilder {
 
 			case 'brands':
 				$base['data'] = $this->brands( $section );
-				return $base;
-
-			case 'faq':
-				$base['data'] = $this->faq( $section );
 				return $base;
 
 			case 'custom':
@@ -127,11 +123,9 @@ final class HomeBuilder {
 			}
 
 			$item = array(
-				'id'       => isset( $banner['id'] ) ? sanitize_key( $banner['id'] ) : 'banner_' . ( $index + 1 ),
-				'title'    => isset( $banner['title'] ) ? sanitize_text_field( $banner['title'] ) : '',
-				'subtitle' => isset( $banner['subtitle'] ) ? sanitize_text_field( $banner['subtitle'] ) : '',
-				'image'    => $image ?: '',
-				'action'   => isset( $banner['action'] ) && is_array( $banner['action'] ) ? $this->resolve_action( $banner['action'] ) : array(),
+				'id'     => isset( $banner['id'] ) ? sanitize_key( $banner['id'] ) : 'banner_' . ( $index + 1 ),
+				'image'  => $image ?: '',
+				'action' => isset( $banner['action'] ) && is_array( $banner['action'] ) ? $this->resolve_action( $banner['action'] ) : array(),
 			);
 
 			if ( ! empty( $banner['url'] ) ) {
@@ -211,43 +205,53 @@ final class HomeBuilder {
 	}
 
 	private function products( array $section ): array {
-		$query = isset( $section['query'] ) && is_array( $section['query'] ) ? $section['query'] : array();
-		$type  = isset( $query['type'] ) ? trim( (string) $query['type'] ) : '';
+		$legacy_query = isset( $section['query'] ) && is_array( $section['query'] ) ? $section['query'] : array();
+		$source       = isset( $section['source'] ) ? sanitize_key( $section['source'] ) : '';
+		$internal_id  = isset( $section['id'] ) ? sanitize_key( $section['id'] ) : '';
 
-		$category_ids = Request::ids( $query['category'] ?? ( $query['categories'] ?? array() ) );
-		$category_ids = array_values( array_unique( array_merge(
-			$category_ids,
-			$this->resolve_term_ids( 'product_cat', $query['category_names'] ?? array(), $query['category_slugs'] ?? array() )
-		) ) );
-
-		$brand_taxonomy = Taxonomy::brand_taxonomy();
-		$brand_ids      = Request::ids( $query['brand'] ?? ( $query['brands'] ?? array() ) );
-		if ( $brand_taxonomy ) {
-			$brand_ids = array_values( array_unique( array_merge(
-				$brand_ids,
-				$this->resolve_term_ids( $brand_taxonomy, $query['brand_names'] ?? array(), $query['brand_slugs'] ?? array() )
-			) ) );
+		// Backward compatibility for saved 2.0.x settings. Only the section's
+		// intended source and per_page are honored; arbitrary search/filter/order
+		// values are intentionally ignored on the home endpoint.
+		if ( ! $source ) {
+			if ( 'amazing_offers' === $internal_id || ! empty( $legacy_query['on_sale'] ) ) {
+				$source = 'on_sale';
+			} elseif ( 'latest_products' === $internal_id ) {
+				$source = 'latest';
+			} elseif ( ! empty( $section['category'] ) || ! empty( $section['category_names'] ) || ! empty( $legacy_query['category'] ) || ! empty( $legacy_query['category_names'] ) ) {
+				$source = 'category';
+			} else {
+				$source = 'latest';
+			}
 		}
 
-		$tag_ids = Request::ids( $query['tag'] ?? ( $query['tags'] ?? array() ) );
-		$tag_ids = array_values( array_unique( array_merge(
-			$tag_ids,
-			$this->resolve_term_ids( 'product_tag', $query['tag_names'] ?? array(), $query['tag_slugs'] ?? array() )
-		) ) );
+		$per_page = absint( $section['per_page'] ?? ( $legacy_query['per_page'] ?? 10 ) );
+		$per_page = min( 30, max( 1, $per_page ?: 10 ) );
+
+		$category_ids = array();
+		if ( 'category' === $source ) {
+			$category_ids = Request::ids( $section['category'] ?? ( $legacy_query['category'] ?? array() ) );
+			if ( ! $category_ids ) {
+				$category_ids = $this->resolve_term_ids(
+					'product_cat',
+					$section['category_names'] ?? ( $legacy_query['category_names'] ?? array() ),
+					$section['category_slugs'] ?? ( $legacy_query['category_slugs'] ?? array() )
+				);
+			}
+		}
 
 		$params = array(
 			'page'      => 1,
-			'per_page'  => min( 30, max( 1, absint( $query['per_page'] ?? 10 ) ) ),
-			'search'    => isset( $query['search'] ) ? sanitize_text_field( $query['search'] ) : '',
-			'type'      => '' === $type ? null : sanitize_key( $type ),
-			'on_sale'   => Request::nullable_boolean( $query['on_sale'] ?? null ),
+			'per_page'  => $per_page,
+			'search'    => '',
+			'type'      => null,
+			'on_sale'   => 'on_sale' === $source ? true : null,
 			'category'  => $category_ids,
-			'brand'     => $brand_ids,
-			'tag'       => $tag_ids,
-			'min_price' => isset( $query['min_price'] ) && '' !== $query['min_price'] ? max( 0, (float) $query['min_price'] ) : null,
-			'max_price' => isset( $query['max_price'] ) && '' !== $query['max_price'] ? max( 0, (float) $query['max_price'] ) : null,
-			'orderby'   => in_array( $query['orderby'] ?? 'date', array( 'price', 'date', 'rating', 'id', 'title', 'popularity' ), true ) ? $query['orderby'] : 'date',
-			'order'     => 'asc' === strtolower( $query['order'] ?? 'desc' ) ? 'asc' : 'desc',
+			'brand'     => array(),
+			'tag'       => array(),
+			'min_price' => null,
+			'max_price' => null,
+			'orderby'   => 'date',
+			'order'     => 'desc',
 		);
 
 		$result = $this->repository->query( $params );
@@ -258,22 +262,27 @@ final class HomeBuilder {
 			$data[]     = $this->formatter->format_card( $product, $result['lookup'][ $product_id ] ?? array() );
 		}
 
-		return array(
-			'data' => $data,
-			'meta' => array(
-				'total_items' => $result['total'],
-				'query'       => $params,
-			),
+		return $data;
+	}
+
+	private function view_all( array $config ): array {
+		$result = array(
+			'title' => isset( $config['title'] ) ? sanitize_text_field( $config['title'] ) : 'مشاهده همه',
 		);
+
+		if ( ! empty( $config['action'] ) && is_array( $config['action'] ) ) {
+			$result['action'] = $this->resolve_action( $config['action'] );
+		}
+
+		return $result;
 	}
 
 	private function categories( array $section ): array {
 		$config  = isset( $section['config'] ) && is_array( $section['config'] ) ? $section['config'] : array();
 		$include = Request::ids( $config['include'] ?? array() );
-		$include = array_values( array_unique( array_merge(
-			$include,
-			$this->resolve_term_ids( 'product_cat', $config['include_names'] ?? array(), $config['include_slugs'] ?? array() )
-		) ) );
+		if ( ! $include ) {
+			$include = $this->resolve_term_ids( 'product_cat', $config['include_names'] ?? array(), $config['include_slugs'] ?? array() );
+		}
 
 		$args = array(
 			'taxonomy'   => 'product_cat',
@@ -314,10 +323,9 @@ final class HomeBuilder {
 
 		$config  = isset( $section['config'] ) && is_array( $section['config'] ) ? $section['config'] : array();
 		$include = Request::ids( $config['include'] ?? array() );
-		$include = array_values( array_unique( array_merge(
-			$include,
-			$this->resolve_term_ids( $taxonomy, $config['include_names'] ?? array(), $config['include_slugs'] ?? array() )
-		) ) );
+		if ( ! $include ) {
+			$include = $this->resolve_term_ids( $taxonomy, $config['include_names'] ?? array(), $config['include_slugs'] ?? array() );
+		}
 
 		$args = array(
 			'taxonomy'   => $taxonomy,

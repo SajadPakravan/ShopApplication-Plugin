@@ -5,22 +5,21 @@ namespace AppAPI;
 defined( 'ABSPATH' ) || exit;
 
 final class Config {
-	public const REST_NAMESPACE       = 'app-api/v1';
-	public const DEFAULT_PER_PAGE     = 20;
-	public const MAX_PER_PAGE         = 100;
-	public const DEFAULT_HOME_CACHE   = 60;
-	public const HOME_MENU_LOCATION   = 'app-api-home-menu';
-	public const OPTION_HOME_SECTIONS = 'app_api_home_sections_json';
-	public const OPTION_HOME_BANNERS  = 'app_api_home_banners_json';
-	public const OPTION_HOME_CACHE    = 'app_api_home_cache_ttl';
-	public const OPTION_CACHE_VERSION = 'app_api_home_cache_version';
+	public const REST_NAMESPACE            = 'app-api/v1';
+	public const DEFAULT_PER_PAGE          = 20;
+	public const MAX_PER_PAGE              = 100;
+	public const DEFAULT_HOME_CACHE        = 60;
+	public const HOME_MENU_LOCATION        = 'app-api-home-menu';
+	public const OPTION_HOME_SECTIONS      = 'app_api_home_sections_json';
+	public const OPTION_HOME_BANNERS       = 'app_api_home_banners_json';
+	public const OPTION_HOME_CACHE         = 'app_api_home_cache_ttl';
+	public const OPTION_CACHE_VERSION      = 'app_api_home_cache_version';
 	public const OPTION_HOME_PRESET_VERSION = 'app_api_home_preset_version';
 
 	/**
 	 * The array order is the exact render order in the Flutter application.
-	 * Yademan System receives a preset mirroring its current public homepage.
-	 * Every other store receives a compact generic WooCommerce preset and may
-	 * customize the same section contract from WooCommerce > Application API.
+	 * Internal section IDs are only configuration keys and are never exposed by
+	 * the home endpoint. Flutter selects the renderer from each section's type.
 	 */
 	public static function default_home_sections(): array {
 		return self::uses_yademan_preset()
@@ -42,10 +41,6 @@ final class Config {
 				'type'    => 'banner_slider',
 				'enabled' => true,
 				'title'   => '',
-				'layout'  => array(
-					'component'    => 'banner_slider',
-					'aspect_ratio' => 2.2,
-				),
 			),
 			array(
 				'id'      => 'main_menu',
@@ -55,25 +50,17 @@ final class Config {
 				'config'  => array(
 					'location' => self::HOME_MENU_LOCATION,
 				),
-				'layout'  => array(
-					'component' => 'icon_menu',
-					'columns'   => 4,
-				),
 			),
 			array(
-				'id'      => 'amazing_offers',
-				'type'    => 'products',
-				'enabled' => true,
-				'title'   => 'پیشنهادهای شگفت‌انگیز',
-				'query'   => array(
-					'on_sale'  => true,
-					'orderby'  => 'date',
-					'order'    => 'desc',
-					'per_page' => 10,
-				),
-				'layout'  => array(
-					'component' => 'product_carousel',
-					'direction' => 'horizontal',
+				'id'        => 'amazing_offers',
+				'type'      => 'products',
+				'enabled'   => true,
+				'title'     => 'پیشنهادهای شگفت‌انگیز',
+				'source'    => 'on_sale',
+				'per_page'  => 10,
+				'view_all'  => array(
+					'title'  => 'مشاهده همه',
+					'action' => array( 'type' => 'products', 'on_sale' => true ),
 				),
 			),
 			array(
@@ -82,31 +69,21 @@ final class Config {
 				'enabled' => true,
 				'title'   => 'دسته‌بندی‌های ویژه',
 				'config'  => array(
+					'include'    => array(),
 					'limit'      => 8,
 					'parent'     => 0,
 					'hide_empty' => true,
 					'orderby'    => 'count',
 					'order'      => 'desc',
 				),
-				'layout'  => array(
-					'component' => 'category_grid',
-					'columns'   => 4,
-				),
 			),
 			array(
-				'id'      => 'latest_products',
-				'type'    => 'products',
-				'enabled' => true,
-				'title'   => 'جدیدترین محصولات',
-				'query'   => array(
-					'orderby'  => 'date',
-					'order'    => 'desc',
-					'per_page' => 10,
-				),
-				'layout'  => array(
-					'component' => 'product_carousel',
-					'direction' => 'horizontal',
-				),
+				'id'       => 'latest_products',
+				'type'     => 'products',
+				'enabled'  => true,
+				'title'    => 'جدیدترین محصولات',
+				'source'   => 'latest',
+				'per_page' => 10,
 			),
 		);
 	}
@@ -123,21 +100,14 @@ final class Config {
 				'data'    => array(
 					array(
 						'id'     => 'laptop_banner',
-						'title'  => 'لپ‌تاپ',
 						'image'  => $uploads . '2026/06/YademanSystem_banner_Laptop.webp',
 						'action' => array( 'type' => 'category', 'name' => 'لپ‌تاپ' ),
 					),
 					array(
 						'id'     => 'speaker_banner',
-						'title'  => 'اسپیکر',
 						'image'  => $uploads . '2026/06/YademanSystem_banner_Speaker.webp',
 						'action' => array( 'type' => 'category', 'name' => 'اسپیکر' ),
 					),
-				),
-				'layout'  => array(
-					'component'    => 'banner_slider',
-					'aspect_ratio' => 3.55,
-					'autoplay'     => true,
 				),
 			),
 			array(
@@ -155,29 +125,19 @@ final class Config {
 					array( 'id' => 'return_request', 'title' => 'درخواست مرجوعی', 'image' => $uploads . '2023/02/f18a182f7c300af9ce3eb8f47201ef340fc87eb3_1670930133.png', 'action' => array( 'type' => 'return_request' ) ),
 					array( 'id' => 'store_payment', 'title' => 'پرداخت فروشگاه', 'image' => $uploads . '2023/02/ac127167132653d14c758748b07824a6a7643a31_1648897095.png', 'action' => array( 'type' => 'store_payment' ) ),
 					array( 'id' => 'survey', 'title' => 'نظرسنجی فروشگاه', 'image' => $uploads . '2023/02/6b21cc5a4ebe6332b778a2f4725ed3fdaa78e014_1673693837.png', 'action' => array( 'type' => 'survey' ) ),
-					array( 'id' => 'more', 'title' => 'بیشتر', 'image' => '', 'action' => array( 'type' => 'more' ) ),
-				),
-				'layout'  => array(
-					'component' => 'icon_menu',
-					'columns'   => 5,
-					'direction' => 'horizontal',
+					array( 'id' => 'more', 'title' => 'بیشتر', 'image' => '', 'action' => array( 'type' => 'products' ) ),
 				),
 			),
 			array(
-				'id'      => 'amazing_offers',
-				'type'    => 'products',
-				'enabled' => true,
-				'title'   => 'پیشنهاد شگفت‌انگیز',
-				'action'  => array( 'type' => 'products', 'on_sale' => true ),
-				'query'   => array(
-					'on_sale'  => true,
-					'orderby'  => 'date',
-					'order'    => 'desc',
-					'per_page' => 10,
-				),
-				'layout'  => array(
-					'component' => 'product_carousel',
-					'direction' => 'horizontal',
+				'id'       => 'amazing_offers',
+				'type'     => 'products',
+				'enabled'  => true,
+				'title'    => 'پیشنهاد شگفت‌انگیز',
+				'source'   => 'on_sale',
+				'per_page' => 10,
+				'view_all' => array(
+					'title'  => 'مشاهده همه',
+					'action' => array( 'type' => 'products', 'on_sale' => true ),
 				),
 			),
 			array(
@@ -186,46 +146,30 @@ final class Config {
 				'enabled' => true,
 				'title'   => 'دسته‌بندی‌های ویژه',
 				'config'  => array(
+					// Replace/include exact WooCommerce product-category IDs here.
+					'include'       => array(),
 					'include_names' => array( 'لپ‌تاپ', 'کامپیوتر و تجهیزات جانبی', 'اسپیکر', 'هدفون و هندزفری', 'تجهیزات ذخیره‌سازی' ),
 					'hide_empty'    => false,
 				),
-				'layout'  => array(
-					'component' => 'category_grid',
-					'columns'   => 5,
-				),
 			),
 			array(
-				'id'      => 'latest_products',
-				'type'    => 'products',
-				'enabled' => true,
-				'title'   => 'جدیدترین محصولات',
-				'action'  => array( 'type' => 'products', 'orderby' => 'date', 'order' => 'desc' ),
-				'query'   => array(
-					'orderby'  => 'date',
-					'order'    => 'desc',
-					'per_page' => 24,
-				),
-				'layout'  => array(
-					'component' => 'product_carousel',
-					'direction' => 'horizontal',
-				),
+				'id'       => 'latest_products',
+				'type'     => 'products',
+				'enabled'  => true,
+				'title'    => 'جدیدترین محصولات',
+				'source'   => 'latest',
+				'per_page' => 10,
 			),
 			array(
-				'id'      => 'computer_products',
-				'type'    => 'products',
-				'enabled' => true,
-				'title'   => 'کامپیوتر و تجهیزات جانبی',
-				'action'  => array( 'type' => 'category', 'name' => 'کامپیوتر و تجهیزات جانبی' ),
-				'query'   => array(
-					'category_names' => array( 'کامپیوتر و تجهیزات جانبی' ),
-					'orderby'        => 'date',
-					'order'          => 'desc',
-					'per_page'       => 10,
-				),
-				'layout'  => array(
-					'component' => 'product_carousel',
-					'direction' => 'horizontal',
-				),
+				'id'           => 'computer_products',
+				'type'         => 'products',
+				'enabled'      => true,
+				'title'        => 'کامپیوتر و تجهیزات جانبی',
+				'source'       => 'category',
+				'category'     => array(),
+				'category_names' => array( 'کامپیوتر و تجهیزات جانبی' ),
+				'per_page'     => 10,
+				'action'       => array( 'type' => 'category', 'name' => 'کامپیوتر و تجهیزات جانبی' ),
 			),
 			array(
 				'id'      => 'computer_promotions',
@@ -235,55 +179,37 @@ final class Config {
 				'data'    => array(
 					array(
 						'id'     => 'computer_accessories_banner',
-						'title'  => 'لوازم جانبی کامپیوتر',
 						'image'  => $uploads . '2026/07/YademanSystem_banner_computer.webp',
 						'action' => array( 'type' => 'category', 'name' => 'کامپیوتر و تجهیزات جانبی' ),
 					),
 					array(
 						'id'     => 'hardware_banner',
-						'title'  => 'سخت‌افزار',
 						'image'  => $uploads . '2026/07/YademanSystem_banner_hardware.webp',
 						'action' => array( 'type' => 'category', 'name' => 'سخت‌افزار' ),
 					),
 				),
-				'layout'  => array(
-					'component' => 'banner_grid',
-					'columns'   => 2,
-				),
 			),
 			array(
-				'id'      => 'laptop_products',
-				'type'    => 'products',
-				'enabled' => true,
-				'title'   => 'لپ‌تاپ و لوازم جانبی',
-				'action'  => array( 'type' => 'category', 'name' => 'لپ‌تاپ' ),
-				'query'   => array(
-					'category_names' => array( 'لپ‌تاپ' ),
-					'orderby'        => 'date',
-					'order'          => 'desc',
-					'per_page'       => 10,
-				),
-				'layout'  => array(
-					'component' => 'product_carousel',
-					'direction' => 'horizontal',
-				),
+				'id'             => 'laptop_products',
+				'type'           => 'products',
+				'enabled'        => true,
+				'title'          => 'لپ‌تاپ و لوازم جانبی',
+				'source'         => 'category',
+				'category'       => array(),
+				'category_names' => array( 'لپ‌تاپ' ),
+				'per_page'       => 10,
+				'action'         => array( 'type' => 'category', 'name' => 'لپ‌تاپ' ),
 			),
 			array(
-				'id'      => 'speaker_products',
-				'type'    => 'products',
-				'enabled' => true,
-				'title'   => 'انواع اسپیکر',
-				'action'  => array( 'type' => 'category', 'name' => 'اسپیکر' ),
-				'query'   => array(
-					'category_names' => array( 'اسپیکر' ),
-					'orderby'        => 'date',
-					'order'          => 'desc',
-					'per_page'       => 10,
-				),
-				'layout'  => array(
-					'component' => 'product_carousel',
-					'direction' => 'horizontal',
-				),
+				'id'             => 'speaker_products',
+				'type'           => 'products',
+				'enabled'        => true,
+				'title'          => 'انواع اسپیکر',
+				'source'         => 'category',
+				'category'       => array(),
+				'category_names' => array( 'اسپیکر' ),
+				'per_page'       => 10,
+				'action'         => array( 'type' => 'category', 'name' => 'اسپیکر' ),
 			),
 			array(
 				'id'      => 'shop_by_category',
@@ -291,6 +217,8 @@ final class Config {
 				'enabled' => true,
 				'title'   => 'خرید بر اساس دسته‌بندی',
 				'config'  => array(
+					// Replace/include exact WooCommerce product-category IDs here.
+					'include'       => array(),
 					'include_names' => array(
 						'لوازم جانبی لپ‌تاپ',
 						'پایه خنک‌کننده لپ‌تاپ',
@@ -311,10 +239,6 @@ final class Config {
 					),
 					'hide_empty' => false,
 				),
-				'layout'  => array(
-					'component' => 'category_grid',
-					'columns'   => 4,
-				),
 			),
 			array(
 				'id'      => 'popular_brands',
@@ -322,12 +246,10 @@ final class Config {
 				'enabled' => true,
 				'title'   => 'محبوب‌ترین برندها',
 				'config'  => array(
+					// Replace/include exact brand term IDs here.
+					'include'       => array(),
 					'include_names' => array( 'آئولا', 'اچ‌پی', 'ارلدام', 'انزو', 'ایسوس', 'تسکو', 'سامسونگ', 'سیلیکون پاور', 'فندا', 'لنوو' ),
 					'hide_empty'    => false,
-				),
-				'layout'  => array(
-					'component' => 'brand_carousel',
-					'direction' => 'horizontal',
 				),
 			),
 			array(
@@ -338,35 +260,9 @@ final class Config {
 				'data'    => array(
 					array(
 						'id'     => 'smartwatch',
-						'title'  => 'انواع ساعت‌های هوشمند',
 						'image'  => $uploads . '2026/07/YademanSystem_banner_smartwatch-scaled.webp',
 						'action' => array( 'type' => 'category', 'name' => 'ساعت هوشمند' ),
 					),
-				),
-				'layout'  => array(
-					'component'    => 'wide_banner',
-					'aspect_ratio' => 4.0,
-				),
-			),
-			array(
-				'id'      => 'faq',
-				'type'    => 'faq',
-				'enabled' => true,
-				'title'   => 'سوالات متداول',
-				'config'  => array(
-					'source' => 'front_page',
-				),
-				'data'    => array(
-					array( 'question' => 'چطور میتوانم سفارشم را پیگیری کنم؟', 'answer' => '' ),
-					array( 'question' => 'میتوانم سفارشم را بصورت اقساطی (اعتباری) پرداخت کنم؟', 'answer' => '' ),
-					array( 'question' => 'چگونه ارسال رایگان داشته باشم؟', 'answer' => '' ),
-					array( 'question' => 'چگونه ثبت سفارش انجام بدم؟', 'answer' => '' ),
-					array( 'question' => 'نحوه ارسال سفارشات چگونه است؟', 'answer' => '' ),
-					array( 'question' => 'آیا امکان مرجوع کردن سفارش وجود دارد؟', 'answer' => '' ),
-					array( 'question' => 'آیا امکان لغو سفارش قبل از ارسال آن وجود دارد؟', 'answer' => '' ),
-				),
-				'layout'  => array(
-					'component' => 'accordion',
 				),
 			),
 		);

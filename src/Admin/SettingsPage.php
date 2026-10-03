@@ -81,7 +81,7 @@ final class SettingsPage {
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Application API', 'application-api' ); ?></h1>
-			<p><?php esc_html_e( 'The order of items in the sections JSON is exactly the order returned by the home API and rendered by the app.', 'application-api' ); ?></p>
+			<p><?php esc_html_e( 'The order of items in the sections JSON is exactly the order returned by the home API. Internal IDs are not exposed; Flutter selects a renderer from each section type.', 'application-api' ); ?></p>
 			<p><code><?php echo esc_html( rest_url( Config::REST_NAMESPACE . '/home' ) ); ?></code></p>
 			<?php settings_errors( 'application-api' ); ?>
 			<form method="post" action="options.php">
@@ -95,7 +95,16 @@ final class SettingsPage {
 						<th scope="row"><label for="app-api-home-banners"><?php esc_html_e( 'Banners JSON', 'application-api' ); ?></label></th>
 						<td>
 							<textarea id="app-api-home-banners" name="<?php echo esc_attr( Config::OPTION_HOME_BANNERS ); ?>" rows="12" class="large-text code" dir="ltr"><?php echo esc_textarea( $banners ); ?></textarea>
-							<p class="description"><code>[{"id":"banner-1","title":"...","image":"https://...","url":"https://...","action":{"type":"category","id":12}}]</code></p>
+							<p class="description"><code>[{"id":"banner-1","image":"https://...","action":{"type":"category","id":12}}]</code></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Home configuration examples', 'application-api' ); ?></th>
+						<td>
+							<p class="description"><code>{"type":"products","source":"latest","per_page":10}</code></p>
+							<p class="description"><code>{"type":"categories","config":{"include":[55,166,167]}}</code></p>
+							<p class="description"><code>{"type":"brands","config":{"include":[313,362,367]}}</code></p>
+							<p class="description"><?php esc_html_e( 'When include IDs are present, only those category or brand IDs are returned and fallback names are ignored. Product home sections use page 1, date descending, and only allow per_page plus their fixed source.', 'application-api' ); ?></p>
 						</td>
 					</tr>
 					<tr>
