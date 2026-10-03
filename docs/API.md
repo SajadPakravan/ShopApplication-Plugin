@@ -1,4 +1,4 @@
-# Application API v2.0.2
+# Application API v2.0.3
 
 Base namespace:
 
@@ -88,6 +88,40 @@ Each variation object contains exactly:
 ```
 
 For a non-variable product, `default_variation` is `null` and `variations` is an empty array.
+
+### Product images
+
+Every product and variation `image` URL points to the original uploaded attachment when WordPress still has it. Generated thumbnail sizes such as `150x150` and `woocommerce_thumbnail` are not used. If original-image metadata is unavailable, the API falls back to the attachment/full-size URL.
+
+The detail response also contains `gallery`, which is a JSON array of full-quality image URLs. Its order is:
+
+1. the initially selected image (the default variation image for variable products);
+2. the parent product featured image, when different;
+3. the remaining WooCommerce product-gallery images.
+
+Duplicate images are removed.
+
+### Additional detail fields
+
+The detail response includes:
+
+- `description`: sanitized rendered HTML from the full WooCommerce product description;
+- `dimensions`: an object containing `length`, `width`, and `height`;
+- `shipping_class`: the WooCommerce shipping-class slug, or an empty string;
+- `average_rating`, `rating_count`, and `total_sales`;
+- `attributes`: every product attribute in WooCommerce order.
+
+Each attribute contains:
+
+```json
+{
+  "name": "Color",
+  "visible": true,
+  "options": ["Black", "White"]
+}
+```
+
+The repeated `visible` entry in the requested field list is represented once because a JSON object cannot contain the same key twice reliably.
 
 ## Home
 

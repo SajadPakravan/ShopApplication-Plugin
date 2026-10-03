@@ -50,6 +50,11 @@ final class ProductFormatter {
 		}
 
 		$data                      = $this->card_data( $product, $presentation, $lookup );
+		$data['description']       = $this->description( $product );
+		$data['gallery']           = $this->gallery( $product, $presentation );
+		$data['dimensions']        = $this->dimensions( $product );
+		$data['shipping_class']    = (string) $product->get_shipping_class();
+		$data['attributes']        = $this->attributes( $product );
 		$data['default_variation'] = $default_variation
 			? $this->format_variation( $default_variation, $product )
 			: null;
@@ -416,14 +421,135 @@ final class ProductFormatter {
 		return floor( $quantity ) === $quantity ? (int) $quantity : $quantity;
 	}
 
+	/**
+	 * Returns the original uploaded attachment whenever WordPress has retained
+	 * it. This intentionally avoids generated thumbnail sizes such as 150x150.
+	 * The attachment/full URL fallbacks preserve compatibility with older media,
+	 * image offloading plugins, and files that do not have original-image data.
+	 */
 	private function image_url( int $image_id ): string {
-		$image = $image_id ? wp_get_attachment_image_url( $image_id, 'woocommerce_thumbnail' ) : '';
+		$image = '';
+
+		if ( $image_id ) {
+			if ( function_exists( 'wp_get_original_image_url' ) ) {
+				$image = wp_get_original_image_url( $image_id );
+			}
+
+			if ( ! $image ) {
+				$image = wp_get_attachment_url( $image_id );
+			}
+
+			if ( ! $image ) {
+				$image = wp_get_attachment_image_url( $image_id, 'full' );
+			}
+		}
 
 		if ( ! $image ) {
-			$image = function_exists( 'wc_placeholder_img_src' ) ? wc_placeholder_img_src( 'woocommerce_thumbnail' ) : '';
+			$image = function_exists( 'wc_placeholder_img_src' ) ? wc_placeholder_img_src( 'full' ) : '';
 		}
 
 		return (string) $image;
+	}
+
+	/**
+	 * Full product description prepared for safe HTML rendering in Flutter.
+	 */
+	private function description( \WC_Product $product ): string {
+		$description = (string) $product->get_description();
+
+		if ( '' === trim( $description ) ) {
+			return '';
+		}
+
+		return (string) wp_kses_post( apply_filters( 'the_content', $description ) );
+	}
+
+	/**
+	 * Product media in display order. The initially selected product/variation
+	 * image is first, followed by the parent featured image and gallery images.
+	 * Duplicate attachment IDs and duplicate URLs are removed.
+	 */
+	private function gallery( \WC_Product $product, array $presentation ): array {
+		$image_ids = array();
+
+		if ( ! empty( $presentation['image_id'] ) ) {
+			$image_ids[] = absint( $presentation['image_id'] );
+		}
+
+		if ( $product->get_image_id() ) {
+			$image_ids[] = absint( $product->get_image_id() );
+		}
+
+		foreach ( $product->get_gallery_image_ids() as $gallery_image_id ) {
+			$image_ids[] = absint( $gallery_image_id );
+		}
+
+		$image_ids = array_values( array_filter( array_unique( $image_ids ) ) );
+		$urls      = array();
+
+		foreach ( $image_ids as $image_id ) {
+			$url = $this->image_url( $image_id );
+
+			if ( '' !== $url && ! in_array( $url, $urls, true ) ) {
+				$urls[] = $url;
+			}
+		}
+
+		return $urls;
+	}
+
+	private function dimensions( \WC_Product $product ): array {
+		return array(
+			'length' => $this->decimal_or_null( $product->get_length() ),
+			'width'  => $this->decimal_or_null( $product->get_width() ),
+			'height' => $this->decimal_or_null( $product->get_height() ),
+		);
+	}
+
+	/**
+	 * Returns every product attribute in WooCommerce order. Taxonomy-based
+	 * options are converted from internal term IDs/slugs to their display names.
+	 */
+	private function attributes( \WC_Product $product ): array {
+		$result = array();
+
+		foreach ( $product->get_attributes() as $attribute ) {
+			if ( ! $attribute instanceof \WC_Product_Attribute ) {
+				continue;
+			}
+
+			$name    = $attribute->get_name();
+			$options = array();
+
+			if ( $attribute->is_taxonomy() ) {
+				$terms = wc_get_product_terms(
+					$product->get_id(),
+					$name,
+					array( 'fields' => 'names' )
+				);
+
+				if ( ! is_wp_error( $terms ) ) {
+					$options = array_values( array_map( 'strval', $terms ) );
+				}
+			} else {
+				$options = array_values(
+					array_map(
+						'strval',
+						$attribute->get_options()
+					)
+				);
+			}
+
+			$result[] = array(
+				'name'    => function_exists( 'wc_attribute_label' )
+					? wc_attribute_label( $name, $product )
+					: $name,
+				'visible' => (bool) $attribute->get_visible(),
+				'options' => $options,
+			);
+		}
+
+		return $result;
 	}
 
 	private function lookup_decimal( array $lookup, string $key ): ?string {
