@@ -110,3 +110,35 @@
 	.app-api-save-bar { right:0; left:0; border-radius:0; }
 	.app-api-save-bar span { display:none; }
 }
+
+/* Visual home API builder (2.2) */
+.app-api-builder-toolbar { display:flex; align-items:center; justify-content:space-between; gap:18px; margin:20px 0 2px; padding:16px; border:1px solid #ddd9ff; border-radius:13px; background:linear-gradient(135deg,#faf9ff,#fff); }
+.app-api-builder-toolbar > div:first-child { display:flex; flex-direction:column; gap:4px; }
+.app-api-builder-toolbar > div:first-child span { color:var(--app-api-muted); }
+.app-api-add-section-controls { display:flex; align-items:center; gap:8px; min-width:360px; }
+.app-api-add-section-controls select { flex:1; }
+.app-api-add-section-controls .button { display:flex; align-items:center; justify-content:center; gap:5px; min-height:40px; white-space:nowrap; }
+.app-api-summary-actions { display:flex; align-items:center; gap:12px; }
+.app-api-section-card > summary .app-api-summary-actions { flex:0 0 auto; }
+.app-api-section-card > summary .button-link-delete { text-decoration:none; font-size:12px; }
+.app-api-section-card > summary .button-link-delete:hover { text-decoration:underline; }
+.app-api-subcard-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:14px; }
+.app-api-subcard-heading h4 { margin:0 0 4px; }
+.app-api-subcard-heading p { margin:0; color:var(--app-api-muted); }
+.app-api-type-panel[hidden] { display:none!important; }
+.app-api-admin-wrap label small { display:block; margin-top:5px; color:var(--app-api-muted); font-weight:400; }
+.app-api-sale-check { margin-top:16px; padding:11px 13px; border:1px solid #b7ead7; border-radius:10px; background:#f2fcf8; }
+.app-api-section-id-input, .app-api-component-input { direction:ltr; text-align:left; }
+.app-api-order-card .app-api-toggle-grid:empty:after, #app-api-active-sections:empty:after { content:"هنوز بخشی ساخته نشده است."; display:block; padding:18px; color:var(--app-api-muted); text-align:center; border:1px dashed var(--app-api-border); border-radius:11px; grid-column:1/-1; }
+.app-api-section-cards:empty:after { content:"از قسمت بالا اولین بخش صفحه خانه را بساز."; display:grid; place-items:center; min-height:180px; padding:30px; color:var(--app-api-muted); background:#fff; border:1px dashed var(--app-api-border); border-radius:16px; }
+
+@media (max-width: 900px) {
+	.app-api-builder-toolbar { align-items:stretch; flex-direction:column; }
+	.app-api-add-section-controls { min-width:0; width:100%; }
+}
+@media (max-width: 600px) {
+	.app-api-add-section-controls { align-items:stretch; flex-direction:column; }
+	.app-api-summary-actions { align-items:flex-end; flex-direction:column; gap:5px; }
+}
+.app-api-section-card > summary > .app-api-summary-actions { flex:0 0 auto; flex-direction:row; align-items:center; }
+@media (max-width:600px) { .app-api-section-card > summary > .app-api-summary-actions { flex-direction:column; align-items:flex-end; } }

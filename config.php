@@ -5,36 +5,89 @@ namespace AppAPI;
 defined( 'ABSPATH' ) || exit;
 
 final class Config {
-	public const REST_NAMESPACE            = 'app-api/v1';
-	public const DEFAULT_PER_PAGE          = 20;
-	public const MAX_PER_PAGE              = 100;
-	public const DEFAULT_HOME_CACHE        = 60;
-	public const HOME_MENU_LOCATION        = 'app-api-home-menu';
-	public const OPTION_HOME_SECTIONS      = 'app_api_home_sections_json';
-	public const OPTION_HOME_CONFIG        = 'app_api_home_configuration';
-	public const OPTION_HOME_BANNERS       = 'app_api_home_banners_json';
-	public const OPTION_HOME_CACHE         = 'app_api_home_cache_ttl';
-	public const OPTION_CACHE_VERSION      = 'app_api_home_cache_version';
+	public const REST_NAMESPACE             = 'app-api/v1';
+	public const DEFAULT_PER_PAGE           = 20;
+	public const MAX_PER_PAGE               = 100;
+	public const DEFAULT_HOME_CACHE         = 60;
+	public const HOME_MENU_LOCATION         = 'app-api-home-menu';
+	public const OPTION_HOME_SECTIONS       = 'app_api_home_sections_json';
+	public const OPTION_HOME_CONFIG         = 'app_api_home_configuration';
+	public const OPTION_HOME_BANNERS        = 'app_api_home_banners_json';
+	public const OPTION_HOME_CACHE          = 'app_api_home_cache_ttl';
+	public const OPTION_CACHE_VERSION       = 'app_api_home_cache_version';
 	public const OPTION_HOME_PRESET_VERSION = 'app_api_home_preset_version';
 
 	/**
-	 * The array order is the exact render order in the Flutter application.
-	 * Internal section IDs are only configuration keys and are never exposed by
-	 * the home endpoint. Flutter selects the renderer from each section's type.
+	 * Types the administrator can add from the visual home-page API builder.
+	 * The menu type is preserved for the existing quick-actions section, but it
+	 * is intentionally not exposed as a new type in this release.
 	 */
-	public static function default_home_sections(): array {
-		return self::uses_yademan_preset()
-			? self::yademan_home_sections()
-			: self::generic_home_sections();
+	public static function addable_section_types(): array {
+		return array(
+			'banner'     => 'بنر',
+			'products'   => 'محصولات',
+			'categories' => 'دسته‌بندی‌ها',
+			'brands'     => 'برندها',
+		);
 	}
 
+	public static function allowed_section_types(): array {
+		return array_merge( array_keys( self::addable_section_types() ), array( 'menu' ) );
+	}
 
-	/**
-	 * Returns the structured, form-managed home configuration.
-	 *
-	 * Version 2.1 no longer requires administrators to edit JSON. Existing JSON
-	 * settings are imported automatically the first time this method is used.
-	 */
+	public static function section_type_label( string $type ): string {
+		$labels = self::addable_section_types();
+		$labels['menu'] = 'منوی دسترسی سریع';
+		return $labels[ sanitize_key( $type ) ] ?? $type;
+	}
+
+	public static function default_layout_for_type( string $type ): array {
+		switch ( sanitize_key( $type ) ) {
+			case 'banner':
+				return array(
+					'component' => 'banner',
+					'direction' => 'horizontal',
+					'rows'      => null,
+					'columns'   => null,
+				);
+			case 'products':
+				return array(
+					'component' => 'product_carousel',
+					'direction' => 'horizontal',
+					'rows'      => 1,
+					'columns'   => null,
+				);
+			case 'categories':
+				return array(
+					'component' => 'category_grid',
+					'direction' => 'horizontal',
+					'rows'      => null,
+					'columns'   => null,
+				);
+			case 'brands':
+				return array(
+					'component' => 'brand_grid',
+					'direction' => 'horizontal',
+					'rows'      => null,
+					'columns'   => null,
+				);
+			case 'menu':
+				return array(
+					'component' => 'action_menu',
+					'direction' => 'horizontal',
+					'rows'      => 2,
+					'columns'   => 5,
+				);
+			default:
+				return array(
+					'component' => $type ?: 'custom',
+					'direction' => 'vertical',
+					'rows'      => null,
+					'columns'   => null,
+				);
+		}
+	}
+
 	public static function home_configuration(): array {
 		$saved = get_option( self::OPTION_HOME_CONFIG, null );
 
@@ -51,206 +104,233 @@ final class Config {
 		return self::configuration_from_sections( self::default_home_sections() );
 	}
 
-	public static function section_labels(): array {
-		$labels = array();
-		foreach ( self::default_home_sections() as $section ) {
-			if ( ! empty( $section['id'] ) ) {
-				$labels[ sanitize_key( $section['id'] ) ] = isset( $section['title'] ) && '' !== trim( (string) $section['title'] )
-					? (string) $section['title']
-					: self::fallback_section_label( sanitize_key( $section['id'] ), sanitize_key( $section['type'] ?? '' ) );
-			}
+	public static function new_section_defaults( string $type, string $key = '' ): array {
+		$type = in_array( sanitize_key( $type ), self::allowed_section_types(), true ) ? sanitize_key( $type ) : 'products';
+		$key  = sanitize_key( $key );
+		$id   = $key ?: $type . '_section';
+
+		$section = array(
+			'id'       => $id,
+			'type'     => $type,
+			'enabled'  => true,
+			'title'    => '',
+			'subtitle' => '',
+			'layout'   => self::default_layout_for_type( $type ),
+		);
+
+		if ( 'banner' === $type || 'menu' === $type ) {
+			$section['data'] = array();
+		} elseif ( 'products' === $type ) {
+			$section['category']      = array();
+			$section['brand']         = array();
+			$section['on_sale']       = false;
+			$section['per_page']      = 10;
+			$section['view_all_title'] = 'مشاهده همه';
+		} elseif ( 'categories' === $type || 'brands' === $type ) {
+			$section['include'] = array();
 		}
-		return $labels;
+
+		return $section;
 	}
 
-	public static function default_layout_for_type( string $type ): array {
-		switch ( sanitize_key( $type ) ) {
-			case 'banner_slider':
-				return array( 'component' => 'banner_slider', 'direction' => 'horizontal', 'columns' => 1 );
-			case 'action_menu':
-			case 'menu':
-				return array( 'component' => 'action_menu', 'direction' => 'horizontal', 'columns' => 5 );
-			case 'products':
-				return array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'columns' => 1 );
-			case 'categories':
-				return array( 'component' => 'category_grid', 'direction' => 'horizontal', 'columns' => 5 );
-			case 'brands':
-				return array( 'component' => 'brand_carousel', 'direction' => 'horizontal', 'columns' => 5 );
-			case 'promo_banners':
-				return array( 'component' => 'banner_grid', 'direction' => 'horizontal', 'columns' => 2 );
-			default:
-				return array( 'component' => $type ?: 'custom', 'direction' => 'vertical', 'columns' => 1 );
-		}
+	public static function default_home_sections(): array {
+		return self::uses_yademan_preset() ? self::yademan_home_sections() : self::generic_home_sections();
 	}
 
 	private static function configuration_from_sections( array $sections ): array {
 		$result = array( 'order' => array(), 'sections' => array() );
+
 		foreach ( $sections as $index => $section ) {
 			if ( ! is_array( $section ) ) {
 				continue;
 			}
-			$id = sanitize_key( $section['id'] ?? ( 'section_' . $index ) );
-			if ( ! $id ) {
+
+			$key = sanitize_key( $section['_key'] ?? $section['id'] ?? ( 'section_' . $index ) );
+			if ( ! $key ) {
 				continue;
 			}
-			$section['id']       = $id;
-			$section['subtitle'] = isset( $section['subtitle'] ) ? (string) $section['subtitle'] : '';
-			$section['layout']   = isset( $section['layout'] ) && is_array( $section['layout'] )
-				? array_merge( self::default_layout_for_type( (string) ( $section['type'] ?? '' ) ), $section['layout'] )
-				: self::default_layout_for_type( (string) ( $section['type'] ?? '' ) );
-			if ( isset( $section['data'] ) && is_array( $section['data'] ) ) {
-				foreach ( $section['data'] as &$item ) {
-					if ( is_array( $item ) ) {
-						$item['title']    = isset( $item['title'] ) ? (string) $item['title'] : '';
-						$item['subtitle'] = isset( $item['subtitle'] ) ? (string) $item['subtitle'] : '';
-					}
-				}
-				unset( $item );
-			}
-			$result['order'][]       = $id;
-			$result['sections'][ $id ] = $section;
+
+			$result['order'][]         = $key;
+			$result['sections'][ $key ] = $section;
 		}
-		return $result;
+
+		return self::normalize_home_configuration( $result );
 	}
 
 	private static function normalize_home_configuration( array $configuration ): array {
-		$defaults = self::default_home_configuration();
-		$sections = isset( $configuration['sections'] ) && is_array( $configuration['sections'] ) ? $configuration['sections'] : array();
-		$order    = isset( $configuration['order'] ) && is_array( $configuration['order'] ) ? $configuration['order'] : array();
+		$raw_sections = isset( $configuration['sections'] ) && is_array( $configuration['sections'] ) ? $configuration['sections'] : array();
+		$raw_order    = isset( $configuration['order'] ) ? $configuration['order'] : array();
+		$raw_order    = is_array( $raw_order ) ? $raw_order : explode( ',', (string) $raw_order );
+		$sections     = array();
 
-		$normalized = array();
-		foreach ( $defaults['sections'] as $id => $default ) {
-			$current = isset( $sections[ $id ] ) && is_array( $sections[ $id ] ) ? $sections[ $id ] : array();
-			$merged  = array_replace_recursive( $default, $current );
-			// Numeric/repeater arrays must be replaceable in full so removing an
-			// item in the visual editor does not resurrect its default counterpart.
-			if ( array_key_exists( 'data', $current ) && is_array( $current['data'] ) ) {
-				$merged['data'] = array_values( $current['data'] );
-			}
-			if ( array_key_exists( 'category', $current ) && is_array( $current['category'] ) ) {
-				$merged['category'] = array_values( $current['category'] );
-			}
-			if ( isset( $current['config'] ) && is_array( $current['config'] ) && array_key_exists( 'include', $current['config'] ) ) {
-				$merged['config']['include'] = array_values( (array) $current['config']['include'] );
-			}
-			$merged['id']       = $id;
-			$merged['type']     = sanitize_key( $merged['type'] ?? $default['type'] ?? 'custom' );
-			$merged['enabled']  = ! empty( $merged['enabled'] );
-			$merged['title']    = isset( $merged['title'] ) ? (string) $merged['title'] : '';
-			$merged['subtitle'] = isset( $merged['subtitle'] ) ? (string) $merged['subtitle'] : '';
-			$merged['layout']   = array_replace(
-				self::default_layout_for_type( $merged['type'] ),
-				isset( $merged['layout'] ) && is_array( $merged['layout'] ) ? $merged['layout'] : array()
-			);
-			$normalized[ $id ] = $merged;
-		}
-
-		// Preserve custom sections created through filters or older versions.
-		foreach ( $sections as $id => $section ) {
-			$id = sanitize_key( (string) $id );
-			if ( ! $id || isset( $normalized[ $id ] ) || ! is_array( $section ) ) {
+		foreach ( $raw_sections as $raw_key => $section ) {
+			if ( ! is_array( $section ) ) {
 				continue;
 			}
-			$section['id']       = $id;
-			$section['type']     = sanitize_key( $section['type'] ?? 'custom' );
-			$section['enabled']  = ! empty( $section['enabled'] );
-			$section['title']    = isset( $section['title'] ) ? (string) $section['title'] : '';
-			$section['subtitle'] = isset( $section['subtitle'] ) ? (string) $section['subtitle'] : '';
-			$section['layout']   = array_replace( self::default_layout_for_type( $section['type'] ), $section['layout'] ?? array() );
-			$normalized[ $id ]   = $section;
+
+			$key = sanitize_key( (string) $raw_key );
+			if ( ! $key ) {
+				$key = 'section_' . ( count( $sections ) + 1 );
+			}
+			while ( isset( $sections[ $key ] ) ) {
+				$key .= '_2';
+			}
+
+			$type = self::normalize_section_type( (string) ( $section['type'] ?? '' ) );
+			if ( ! in_array( $type, self::allowed_section_types(), true ) ) {
+				continue;
+			}
+
+			$layout = isset( $section['layout'] ) && is_array( $section['layout'] ) ? $section['layout'] : array();
+			$layout = array_replace( self::default_layout_for_type( $type ), $layout );
+
+			// Convert the old columns-only layout to the new rows/columns model.
+			$rows    = self::nullable_positive_int( $layout['rows'] ?? null, 12 );
+			$columns = self::nullable_positive_int( $layout['columns'] ?? null, 12 );
+			if ( 'banner' === $type && ! array_key_exists( 'rows', $layout ) && ! empty( $section['data'] ) ) {
+				$rows = null;
+			}
+
+			$clean = array(
+				'id'       => self::sanitize_api_id( (string) ( $section['id'] ?? $key ), $key ),
+				'type'     => $type,
+				'enabled'  => ! empty( $section['enabled'] ),
+				'title'    => isset( $section['title'] ) ? (string) $section['title'] : '',
+				'subtitle' => isset( $section['subtitle'] ) ? (string) $section['subtitle'] : '',
+				'layout'   => array(
+					'component' => self::sanitize_component( (string) ( $layout['component'] ?? $type ), $type ),
+					'direction' => in_array( $layout['direction'] ?? '', array( 'horizontal', 'vertical' ), true ) ? $layout['direction'] : 'horizontal',
+					'rows'      => $rows,
+					'columns'   => $columns,
+				),
+			);
+
+			if ( 'banner' === $type || 'menu' === $type ) {
+				$clean['data'] = isset( $section['data'] ) && is_array( $section['data'] ) ? array_values( $section['data'] ) : array();
+			}
+
+			if ( 'products' === $type ) {
+				$legacy_query = isset( $section['query'] ) && is_array( $section['query'] ) ? $section['query'] : array();
+				$source       = sanitize_key( (string) ( $section['source'] ?? '' ) );
+				$category     = $section['category'] ?? ( $legacy_query['category'] ?? array() );
+				$brand        = $section['brand'] ?? ( $legacy_query['brand'] ?? array() );
+				$on_sale      = isset( $section['on_sale'] ) ? (bool) $section['on_sale'] : ( 'on_sale' === $source || ! empty( $legacy_query['on_sale'] ) );
+				$per_page     = absint( $section['per_page'] ?? ( $legacy_query['per_page'] ?? 10 ) );
+
+				$clean['category']       = self::ids( $category );
+				$clean['brand']          = self::ids( $brand );
+				$clean['on_sale']        = $on_sale;
+				$clean['per_page']       = min( 50, max( 1, $per_page ?: 10 ) );
+				$clean['view_all_title'] = sanitize_text_field(
+					(string) ( $section['view_all_title'] ?? ( $section['view_all']['title'] ?? 'مشاهده همه' ) )
+				) ?: 'مشاهده همه';
+
+				// Keep old name/slug fallbacks until the administrator saves exact IDs.
+				$clean['category_names'] = isset( $section['category_names'] ) && is_array( $section['category_names'] ) ? array_values( $section['category_names'] ) : array();
+				$clean['category_slugs'] = isset( $section['category_slugs'] ) && is_array( $section['category_slugs'] ) ? array_values( $section['category_slugs'] ) : array();
+				$clean['brand_names']    = isset( $section['brand_names'] ) && is_array( $section['brand_names'] ) ? array_values( $section['brand_names'] ) : array();
+				$clean['brand_slugs']    = isset( $section['brand_slugs'] ) && is_array( $section['brand_slugs'] ) ? array_values( $section['brand_slugs'] ) : array();
+			}
+
+			if ( 'categories' === $type || 'brands' === $type ) {
+				$config = isset( $section['config'] ) && is_array( $section['config'] ) ? $section['config'] : array();
+				$clean['include'] = self::ids( $section['include'] ?? ( $config['include'] ?? array() ) );
+				$clean['include_names'] = isset( $config['include_names'] ) && is_array( $config['include_names'] ) ? array_values( $config['include_names'] ) : array();
+				$clean['include_slugs'] = isset( $config['include_slugs'] ) && is_array( $config['include_slugs'] ) ? array_values( $config['include_slugs'] ) : array();
+			}
+
+			$sections[ $key ] = $clean;
 		}
 
-		$clean_order = array();
-		foreach ( $order as $id ) {
-			$id = sanitize_key( (string) $id );
-			if ( $id && isset( $normalized[ $id ] ) && ! in_array( $id, $clean_order, true ) ) {
-				$clean_order[] = $id;
+		$order = array();
+		foreach ( $raw_order as $key ) {
+			$key = sanitize_key( (string) $key );
+			if ( $key && isset( $sections[ $key ] ) && ! in_array( $key, $order, true ) ) {
+				$order[] = $key;
 			}
 		}
-		foreach ( array_keys( $normalized ) as $id ) {
-			if ( ! in_array( $id, $clean_order, true ) ) {
-				$clean_order[] = $id;
+		foreach ( array_keys( $sections ) as $key ) {
+			if ( ! in_array( $key, $order, true ) ) {
+				$order[] = $key;
 			}
 		}
 
-		return array( 'order' => $clean_order, 'sections' => $normalized );
+		return array( 'order' => $order, 'sections' => $sections );
 	}
 
-	private static function fallback_section_label( string $id, string $type ): string {
-		$known = array(
-			'hero_banners'        => 'اسلاید بنرها',
-			'quick_actions'       => 'منوی دسترسی سریع',
-			'amazing_offers'      => 'پیشنهاد شگفت‌انگیز',
-			'special_categories'  => 'دسته‌بندی‌های ویژه',
-			'latest_products'     => 'جدیدترین محصولات',
-			'computer_products'   => 'کامپیوتر و تجهیزات جانبی',
-			'computer_promotions' => 'بنرهای کامپیوتر و سخت‌افزار',
-			'laptop_products'     => 'لپ‌تاپ و لوازم جانبی',
-			'speaker_products'    => 'انواع اسپیکر',
-			'shop_by_category'    => 'خرید بر اساس دسته‌بندی',
-			'popular_brands'      => 'محبوب‌ترین برندها',
-			'smartwatch_banner'   => 'بنر ساعت هوشمند',
-		);
-		return $known[ $id ] ?? ( $type ?: $id );
+	private static function normalize_section_type( string $type ): string {
+		$type = sanitize_key( $type );
+		if ( in_array( $type, array( 'banner_slider', 'promo_banners' ), true ) ) {
+			return 'banner';
+		}
+		if ( in_array( $type, array( 'action_menu', 'menu' ), true ) ) {
+			return 'menu';
+		}
+		return $type;
+	}
+
+
+	private static function sanitize_component( string $component, string $fallback ): string {
+		$component = trim( $component );
+		$component = preg_replace( '/[^A-Za-z0-9_-]+/', '_', $component );
+		$component = trim( (string) $component, '_-' );
+		return $component ?: $fallback;
+	}
+
+	private static function sanitize_api_id( string $id, string $fallback ): string {
+		$id = strtolower( trim( $id ) );
+		$id = preg_replace( '/[^a-z0-9_-]+/', '_', $id );
+		$id = trim( (string) $id, '_-' );
+		return $id ?: sanitize_key( $fallback );
+	}
+
+	private static function nullable_positive_int( $value, int $maximum ) {
+		if ( null === $value || '' === trim( (string) $value ) ) {
+			return null;
+		}
+		$value = absint( $value );
+		return $value > 0 ? min( $maximum, $value ) : null;
+	}
+
+	private static function ids( $value ): array {
+		if ( is_string( $value ) ) {
+			$value = preg_split( '/[\s,]+/', $value );
+		}
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+		return array_values( array_unique( array_filter( array_map( 'absint', $value ) ) ) );
 	}
 
 	public static function uses_yademan_preset(): bool {
 		$host = function_exists( 'home_url' ) ? wp_parse_url( home_url( '/' ), PHP_URL_HOST ) : '';
 		$host = strtolower( (string) $host );
-
 		return 'yademansystem.ir' === $host || 'www.yademansystem.ir' === $host;
 	}
 
 	private static function generic_home_sections(): array {
 		return array(
 			array(
-				'id'      => 'banner_slider',
-				'type'    => 'banner_slider',
-				'enabled' => true,
-				'title'   => '',
-			),
-			array(
-				'id'      => 'main_menu',
-				'type'    => 'menu',
-				'enabled' => true,
-				'title'   => '',
-				'config'  => array(
-					'location' => self::HOME_MENU_LOCATION,
-				),
-			),
-			array(
-				'id'        => 'amazing_offers',
-				'type'      => 'products',
-				'enabled'   => true,
-				'title'     => 'پیشنهادهای شگفت‌انگیز',
-				'source'    => 'on_sale',
-				'per_page'  => 10,
-				'view_all'  => array(
-					'title'  => 'مشاهده همه',
-					'action' => array( 'type' => 'products', 'on_sale' => true ),
-				),
-			),
-			array(
-				'id'      => 'special_categories',
-				'type'    => 'categories',
-				'enabled' => true,
-				'title'   => 'دسته‌بندی‌های ویژه',
-				'config'  => array(
-					'include'    => array(),
-					'limit'      => 8,
-					'parent'     => 0,
-					'hide_empty' => true,
-					'orderby'    => 'count',
-					'order'      => 'desc',
-				),
+				'id'       => 'hero_banners',
+				'type'     => 'banner',
+				'enabled'  => true,
+				'title'    => '',
+				'subtitle' => '',
+				'layout'   => array( 'component' => 'banner_slider', 'direction' => 'horizontal', 'rows' => null, 'columns' => null ),
+				'data'     => array(),
 			),
 			array(
 				'id'       => 'latest_products',
 				'type'     => 'products',
 				'enabled'  => true,
 				'title'    => 'جدیدترین محصولات',
-				'source'   => 'latest',
+				'subtitle' => '',
+				'layout'   => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => null ),
+				'category' => array(),
+				'brand'    => array(),
+				'on_sale'  => false,
 				'per_page' => 10,
+				'view_all_title' => 'مشاهده همه',
 			),
 		);
 	}
@@ -260,39 +340,35 @@ final class Config {
 
 		return array(
 			array(
-				'id'      => 'hero_banners',
-				'type'    => 'banner_slider',
-				'enabled' => true,
-				'title'   => '',
-				'data'    => array(
-					array(
-						'id'     => 'laptop_banner',
-						'image'  => $uploads . '2026/06/YademanSystem_banner_Laptop.webp',
-						'action' => array( 'type' => 'category', 'name' => 'لپ‌تاپ' ),
-					),
-					array(
-						'id'     => 'speaker_banner',
-						'image'  => $uploads . '2026/06/YademanSystem_banner_Speaker.webp',
-						'action' => array( 'type' => 'category', 'name' => 'اسپیکر' ),
-					),
+				'id'       => 'hero_banners',
+				'type'     => 'banner',
+				'enabled'  => true,
+				'title'    => '',
+				'subtitle' => '',
+				'layout'   => array( 'component' => 'banner_slider', 'direction' => 'horizontal', 'rows' => null, 'columns' => null ),
+				'data'     => array(
+					array( 'id' => 'laptop_banner', 'title' => '', 'subtitle' => '', 'image' => $uploads . '2026/06/YademanSystem_banner_Laptop.webp', 'action' => array( 'type' => 'category', 'name' => 'لپ‌تاپ' ) ),
+					array( 'id' => 'speaker_banner', 'title' => '', 'subtitle' => '', 'image' => $uploads . '2026/06/YademanSystem_banner_Speaker.webp', 'action' => array( 'type' => 'category', 'name' => 'اسپیکر' ) ),
 				),
 			),
 			array(
-				'id'      => 'quick_actions',
-				'type'    => 'action_menu',
-				'enabled' => true,
-				'title'   => '',
-				'data'    => array(
-					array( 'id' => 'application', 'title' => 'اپلیکیشن فروشگاه', 'image' => $uploads . '2023/02/33f94db0e93a29b08b5c45d7932dbb114791155d_1658329987.png', 'action' => array( 'type' => 'app_download' ) ),
-					array( 'id' => 'sale', 'title' => 'حراجی', 'image' => $uploads . '2023/02/258db5bf0ff7b28dbae1bfb3dfaa71bfff32faf9_1654679397.png', 'action' => array( 'type' => 'products', 'on_sale' => true ) ),
-					array( 'id' => 'purchase_consulting', 'title' => 'مشاوره خرید', 'image' => $uploads . '2023/02/6c69096a524add2d4646cd162dfa5f66d4ddceac_1668952039.png', 'action' => array( 'type' => 'purchase_consulting' ) ),
-					array( 'id' => 'goods_order', 'title' => 'سفارش اجناس', 'image' => $uploads . '2023/02/17bb6daa07ae2ec11867fb7320ed6f79b26f1f4b_1648897081.png', 'action' => array( 'type' => 'goods_order' ) ),
-					array( 'id' => 'assembly_order', 'title' => 'سفارش مونتاژ', 'image' => $uploads . '2023/02/d0dc31c892be8cf1408e4e14580b3f479da66bd1_1648897133.png', 'action' => array( 'type' => 'assembly_order' ) ),
-					array( 'id' => 'repair_order', 'title' => 'سفارش تعمیرات', 'image' => $uploads . '2023/02/d919c238a583cacd2048a254e5623f81dd11ab24_16736372.png', 'action' => array( 'type' => 'repair_order' ) ),
-					array( 'id' => 'return_request', 'title' => 'درخواست مرجوعی', 'image' => $uploads . '2023/02/f18a182f7c300af9ce3eb8f47201ef340fc87eb3_1670930133.png', 'action' => array( 'type' => 'return_request' ) ),
-					array( 'id' => 'store_payment', 'title' => 'پرداخت فروشگاه', 'image' => $uploads . '2023/02/ac127167132653d14c758748b07824a6a7643a31_1648897095.png', 'action' => array( 'type' => 'store_payment' ) ),
-					array( 'id' => 'survey', 'title' => 'نظرسنجی فروشگاه', 'image' => $uploads . '2023/02/6b21cc5a4ebe6332b778a2f4725ed3fdaa78e014_1673693837.png', 'action' => array( 'type' => 'survey' ) ),
-					array( 'id' => 'more', 'title' => 'بیشتر', 'image' => '', 'action' => array( 'type' => 'products' ) ),
+				'id'       => 'quick_actions',
+				'type'     => 'menu',
+				'enabled'  => true,
+				'title'    => '',
+				'subtitle' => '',
+				'layout'   => array( 'component' => 'action_menu', 'direction' => 'horizontal', 'rows' => 2, 'columns' => 5 ),
+				'data'     => array(
+					array( 'id' => 'application', 'title' => 'اپلیکیشن فروشگاه', 'subtitle' => '', 'image' => $uploads . '2023/02/33f94db0e93a29b08b5c45d7932dbb114791155d_1658329987.png', 'action' => array( 'type' => 'app_download' ) ),
+					array( 'id' => 'sale', 'title' => 'حراجی', 'subtitle' => '', 'image' => $uploads . '2023/02/258db5bf0ff7b28dbae1bfb3dfaa71bfff32faf9_1654679397.png', 'action' => array( 'type' => 'products', 'on_sale' => true ) ),
+					array( 'id' => 'purchase_consulting', 'title' => 'مشاوره خرید', 'subtitle' => '', 'image' => $uploads . '2023/02/6c69096a524add2d4646cd162dfa5f66d4ddceac_1668952039.png', 'action' => array( 'type' => 'purchase_consulting' ) ),
+					array( 'id' => 'goods_order', 'title' => 'سفارش اجناس', 'subtitle' => '', 'image' => $uploads . '2023/02/17bb6daa07ae2ec11867fb7320ed6f79b26f1f4b_1648897081.png', 'action' => array( 'type' => 'goods_order' ) ),
+					array( 'id' => 'assembly_order', 'title' => 'سفارش مونتاژ', 'subtitle' => '', 'image' => $uploads . '2023/02/d0dc31c892be8cf1408e4e14580b3f479da66bd1_1648897133.png', 'action' => array( 'type' => 'assembly_order' ) ),
+					array( 'id' => 'repair_order', 'title' => 'سفارش تعمیرات', 'subtitle' => '', 'image' => $uploads . '2023/02/d919c238a583cacd2048a254e5623f81dd11ab24_16736372.png', 'action' => array( 'type' => 'repair_order' ) ),
+					array( 'id' => 'return_request', 'title' => 'درخواست مرجوعی', 'subtitle' => '', 'image' => $uploads . '2023/02/f18a182f7c300af9ce3eb8f47201ef340fc87eb3_1670930133.png', 'action' => array( 'type' => 'return_request' ) ),
+					array( 'id' => 'store_payment', 'title' => 'پرداخت فروشگاه', 'subtitle' => '', 'image' => $uploads . '2023/02/ac127167132653d14c758748b07824a6a7643a31_1648897095.png', 'action' => array( 'type' => 'store_payment' ) ),
+					array( 'id' => 'survey', 'title' => 'نظرسنجی فروشگاه', 'subtitle' => '', 'image' => $uploads . '2023/02/6b21cc5a4ebe6332b778a2f4725ed3fdaa78e014_1673693837.png', 'action' => array( 'type' => 'survey' ) ),
+					array( 'id' => 'more', 'title' => 'بیشتر', 'subtitle' => '', 'image' => '', 'action' => array( 'type' => 'products' ) ),
 				),
 			),
 			array(
@@ -300,60 +376,61 @@ final class Config {
 				'type'     => 'products',
 				'enabled'  => true,
 				'title'    => 'پیشنهاد شگفت‌انگیز',
-				'source'   => 'on_sale',
+				'subtitle' => '',
+				'layout'   => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => null ),
+				'category' => array(),
+				'brand'    => array(),
+				'on_sale'  => true,
 				'per_page' => 10,
-				'view_all' => array(
-					'title'  => 'مشاهده همه',
-					'action' => array( 'type' => 'products', 'on_sale' => true ),
-				),
+				'view_all_title' => 'مشاهده همه',
 			),
 			array(
-				'id'      => 'special_categories',
-				'type'    => 'categories',
-				'enabled' => true,
-				'title'   => 'دسته‌بندی‌های ویژه',
-				'config'  => array(
-					// Replace/include exact WooCommerce product-category IDs here.
-					'include'       => array(),
-					'include_names' => array( 'لپ‌تاپ', 'کامپیوتر و تجهیزات جانبی', 'اسپیکر', 'هدفون و هندزفری', 'تجهیزات ذخیره‌سازی' ),
-					'hide_empty'    => false,
-				),
+				'id'       => 'special_categories',
+				'type'     => 'categories',
+				'enabled'  => true,
+				'title'    => 'دسته‌بندی‌های ویژه',
+				'subtitle' => '',
+				'layout'   => array( 'component' => 'category_grid', 'direction' => 'horizontal', 'rows' => null, 'columns' => 5 ),
+				'include'  => array(),
+				'config'   => array( 'include_names' => array( 'لپ‌تاپ', 'کامپیوتر و تجهیزات جانبی', 'اسپیکر', 'هدفون و هندزفری', 'تجهیزات ذخیره‌سازی' ) ),
 			),
 			array(
 				'id'       => 'latest_products',
 				'type'     => 'products',
 				'enabled'  => true,
 				'title'    => 'جدیدترین محصولات',
-				'source'   => 'latest',
+				'subtitle' => '',
+				'layout'   => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => null ),
+				'category' => array(),
+				'brand'    => array(),
+				'on_sale'  => false,
 				'per_page' => 10,
+				'view_all_title' => 'مشاهده همه',
 			),
 			array(
-				'id'           => 'computer_products',
-				'type'         => 'products',
-				'enabled'      => true,
-				'title'        => 'کامپیوتر و تجهیزات جانبی',
-				'source'       => 'category',
-				'category'     => array(),
+				'id'             => 'computer_products',
+				'type'           => 'products',
+				'enabled'        => true,
+				'title'          => 'کامپیوتر و تجهیزات جانبی',
+				'subtitle'       => '',
+				'layout'         => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => null ),
+				'category'       => array(),
 				'category_names' => array( 'کامپیوتر و تجهیزات جانبی' ),
-				'per_page'     => 10,
-				'action'       => array( 'type' => 'category', 'name' => 'کامپیوتر و تجهیزات جانبی' ),
+				'brand'          => array(),
+				'on_sale'        => false,
+				'per_page'       => 10,
+				'view_all_title' => 'مشاهده همه',
 			),
 			array(
-				'id'      => 'computer_promotions',
-				'type'    => 'promo_banners',
-				'enabled' => true,
-				'title'   => '',
-				'data'    => array(
-					array(
-						'id'     => 'computer_accessories_banner',
-						'image'  => $uploads . '2026/07/YademanSystem_banner_computer.webp',
-						'action' => array( 'type' => 'category', 'name' => 'کامپیوتر و تجهیزات جانبی' ),
-					),
-					array(
-						'id'     => 'hardware_banner',
-						'image'  => $uploads . '2026/07/YademanSystem_banner_hardware.webp',
-						'action' => array( 'type' => 'category', 'name' => 'سخت‌افزار' ),
-					),
+				'id'       => 'computer_promotions',
+				'type'     => 'banner',
+				'enabled'  => true,
+				'title'    => '',
+				'subtitle' => '',
+				'layout'   => array( 'component' => 'banner_grid', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 2 ),
+				'data'     => array(
+					array( 'id' => 'computer_accessories_banner', 'title' => '', 'subtitle' => '', 'image' => $uploads . '2026/07/YademanSystem_banner_computer.webp', 'action' => array( 'type' => 'category', 'name' => 'کامپیوتر و تجهیزات جانبی' ) ),
+					array( 'id' => 'hardware_banner', 'title' => '', 'subtitle' => '', 'image' => $uploads . '2026/07/YademanSystem_banner_hardware.webp', 'action' => array( 'type' => 'category', 'name' => 'سخت‌افزار' ) ),
 				),
 			),
 			array(
@@ -361,75 +438,60 @@ final class Config {
 				'type'           => 'products',
 				'enabled'        => true,
 				'title'          => 'لپ‌تاپ و لوازم جانبی',
-				'source'         => 'category',
+				'subtitle'       => '',
+				'layout'         => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => null ),
 				'category'       => array(),
 				'category_names' => array( 'لپ‌تاپ' ),
+				'brand'          => array(),
+				'on_sale'        => false,
 				'per_page'       => 10,
-				'action'         => array( 'type' => 'category', 'name' => 'لپ‌تاپ' ),
+				'view_all_title' => 'مشاهده همه',
 			),
 			array(
 				'id'             => 'speaker_products',
 				'type'           => 'products',
 				'enabled'        => true,
 				'title'          => 'انواع اسپیکر',
-				'source'         => 'category',
+				'subtitle'       => '',
+				'layout'         => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => null ),
 				'category'       => array(),
 				'category_names' => array( 'اسپیکر' ),
+				'brand'          => array(),
+				'on_sale'        => false,
 				'per_page'       => 10,
-				'action'         => array( 'type' => 'category', 'name' => 'اسپیکر' ),
+				'view_all_title' => 'مشاهده همه',
 			),
 			array(
-				'id'      => 'shop_by_category',
-				'type'    => 'categories',
-				'enabled' => true,
-				'title'   => 'خرید بر اساس دسته‌بندی',
-				'config'  => array(
-					// Replace/include exact WooCommerce product-category IDs here.
-					'include'       => array(),
-					'include_names' => array(
-						'لوازم جانبی لپ‌تاپ',
-						'پایه خنک‌کننده لپ‌تاپ',
-						'کیبور و ماوس',
-						'سخت‌افزار',
-						'اسپیکر بی‌سیم',
-						'گوشی موبایل',
-						'لوازم جانبی موبایل',
-						'هندزفری',
-						'هارد',
-						'تجهیزات شبکه',
-						'ماشین‌های اداری',
-						'تجهیزات بازی',
-						'کیف، کوله و کاور',
-						'تلویزیون',
-						'ساعت هوشمند',
-						'تمیز کننده',
-					),
-					'hide_empty' => false,
+				'id'       => 'shop_by_category',
+				'type'     => 'categories',
+				'enabled'  => true,
+				'title'    => 'خرید بر اساس دسته‌بندی',
+				'subtitle' => '',
+				'layout'   => array( 'component' => 'category_grid', 'direction' => 'horizontal', 'rows' => null, 'columns' => 4 ),
+				'include'  => array(),
+				'config'   => array(
+					'include_names' => array( 'لوازم جانبی لپ‌تاپ', 'پایه خنک‌کننده لپ‌تاپ', 'کیبور و ماوس', 'سخت‌افزار', 'اسپیکر بی‌سیم', 'گوشی موبایل', 'لوازم جانبی موبایل', 'هندزفری', 'هارد', 'تجهیزات شبکه', 'ماشین‌های اداری', 'تجهیزات بازی', 'کیف، کوله و کاور', 'تلویزیون', 'ساعت هوشمند', 'تمیز کننده' ),
 				),
 			),
 			array(
-				'id'      => 'popular_brands',
-				'type'    => 'brands',
-				'enabled' => true,
-				'title'   => 'محبوب‌ترین برندها',
-				'config'  => array(
-					// Replace/include exact brand term IDs here.
-					'include'       => array(),
-					'include_names' => array( 'آئولا', 'اچ‌پی', 'ارلدام', 'انزو', 'ایسوس', 'تسکو', 'سامسونگ', 'سیلیکون پاور', 'فندا', 'لنوو' ),
-					'hide_empty'    => false,
-				),
+				'id'       => 'popular_brands',
+				'type'     => 'brands',
+				'enabled'  => true,
+				'title'    => 'محبوب‌ترین برندها',
+				'subtitle' => '',
+				'layout'   => array( 'component' => 'brand_grid', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 5 ),
+				'include'  => array(),
+				'config'   => array( 'include_names' => array( 'آئولا', 'اچ‌پی', 'ارلدام', 'انزو', 'ایسوس', 'تسکو', 'سامسونگ', 'سیلیکون پاور', 'فندا', 'لنوو' ) ),
 			),
 			array(
-				'id'      => 'smartwatch_banner',
-				'type'    => 'promo_banners',
-				'enabled' => true,
-				'title'   => '',
-				'data'    => array(
-					array(
-						'id'     => 'smartwatch',
-						'image'  => $uploads . '2026/07/YademanSystem_banner_smartwatch-scaled.webp',
-						'action' => array( 'type' => 'category', 'name' => 'ساعت هوشمند' ),
-					),
+				'id'       => 'smartwatch_banner',
+				'type'     => 'banner',
+				'enabled'  => true,
+				'title'    => '',
+				'subtitle' => '',
+				'layout'   => array( 'component' => 'banner', 'direction' => 'horizontal', 'rows' => null, 'columns' => null ),
+				'data'     => array(
+					array( 'id' => 'smartwatch', 'title' => '', 'subtitle' => '', 'image' => $uploads . '2026/07/YademanSystem_banner_smartwatch-scaled.webp', 'action' => array( 'type' => 'category', 'name' => 'ساعت هوشمند' ) ),
 				),
 			),
 		);

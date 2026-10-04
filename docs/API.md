@@ -1,4 +1,4 @@
-# Application API v2.1.0
+# Application API v2.2.0
 
 Base namespace:
 
@@ -127,11 +127,9 @@ The repeated `visible` entry in the requested field list is represented once bec
 
 `GET /home`
 
-The home endpoint remains parameter-free. Its content is configured in WordPress under:
+The endpoint itself remains parameter-free. Administrators build its content visually under:
 
 `WooCommerce > Application API > Home`
-
-The top-level response is:
 
 ```json
 {
@@ -140,9 +138,20 @@ The top-level response is:
 }
 ```
 
-The order of `sections` exactly matches the active order saved in the visual editor. Disabled sections are omitted completely.
+The `sections` array follows the saved active order. Disabled or deleted sections are omitted.
 
-Every section includes stable identity and rendering information:
+### Dynamic section builder
+
+Administrators can add as many independent sections as needed. New sections can currently be one of:
+
+- `banner`
+- `products`
+- `categories`
+- `brands`
+
+The existing quick-actions menu is preserved as the `menu` type. Each section has an editable API `id`, type, title, subtitle, Component, direction, optional rows, and optional columns. Section IDs are made unique when settings are saved.
+
+Every returned section has this base contract:
 
 ```json
 {
@@ -154,70 +163,90 @@ Every section includes stable identity and rendering information:
   "layout": {
     "component": "product_carousel",
     "direction": "horizontal",
-    "columns": 1
+    "rows": 2
   },
   "data": []
 }
 ```
 
-- `id` identifies the exact section instance.
-- `type` identifies the data family.
-- `layout` gives Flutter optional rendering hints.
-- `position` is generated from the saved active order.
-- `title` and `subtitle` always exist, even when empty.
+Empty `rows` or `columns` are omitted from JSON. This allows one banner to be rendered without forcing a grid while multi-item sections can explicitly declare their grid.
 
-### Visual WordPress editor
+### Banner sections
 
-The home tab provides:
-
-- enable/disable switches for every section;
-- drag-and-drop ordering plus up/down buttons;
-- section title and subtitle fields;
-- layout component, direction, and column fields;
-- per-section product count (`per_page`);
-- category and brand ID selectors entered as comma-separated IDs;
-- media-library selectors for slider banners, promotional banners, and menu icons;
-- editable title, subtitle, image/icon, and action for every banner/menu item;
-- responsive tabs reserved for future Shop, Categories, Product, and Account API settings.
-
-No JSON editing is required.
-
-### Product sections
-
-Home product sections always use page 1 and date descending. The home editor controls `per_page`; when omitted it defaults to 10 and is capped at 30.
-
-Fixed sources:
-
-- `on_sale`: newest sale products;
-- `latest`: newest published products;
-- `category`: newest products from the configured category IDs.
-
-The amazing-offers section also returns a separate `view_all` object. Flutter should render it after the product cards as the final slide.
-
-### Category and brand sections
-
-Enter IDs in the visual setting field, for example:
-
-`55,166,350`
-
-Only the selected IDs are returned and their entered order is preserved. This is used independently for special categories, shop-by-category, and popular brands.
-
-### Banners and action menu
-
-Each configured item returns:
+A `banner` section can contain one or many ordered items. It replaces the former separate slider, promotional-banner, and single-banner types. Its Component decides how Flutter renders it, for example `banner_slider`, `banner_grid`, or `banner`.
 
 ```json
 {
-  "id": "banner_slider-1",
-  "title": "",
-  "subtitle": "",
-  "image": "https://example.com/original-image.webp",
-  "action": {
-    "type": "category",
-    "id": 350
+  "id": "hardware_banners",
+  "type": "banner",
+  "layout": {
+    "component": "banner_grid",
+    "direction": "horizontal",
+    "rows": 2,
+    "columns": 2
+  },
+  "data": [
+    {
+      "id": "hardware_1",
+      "title": "",
+      "subtitle": "",
+      "image": "https://example.com/original.webp",
+      "action": { "type": "category", "id": 350 }
+    }
+  ]
+}
+```
+
+Banner items can be added, removed, reordered by drag-and-drop, and edited through the WordPress media library.
+
+### Product sections
+
+A `products` section supports:
+
+- one or more category IDs;
+- one or more brand IDs;
+- an `on_sale` switch;
+- `per_page`, defaulting to 10 when empty;
+- an optional row count for multi-row horizontal rendering.
+
+If both category and brand filters are empty, the newest products from the entire store are returned. Multiple IDs inside one taxonomy use OR logic; category and brand filters are combined with AND logic. Results are always page 1, ordered by date descending.
+
+Every product section returns a final-slide instruction containing the exact filters used:
+
+```json
+{
+  "view_all": {
+    "title": "مشاهده همه",
+    "action": {
+      "type": "products",
+      "category": [166, 350],
+      "brand": [313],
+      "on_sale": true,
+      "orderby": "date",
+      "order": "desc"
+    }
   }
 }
 ```
 
-Media-library attachment IDs are preferred so the API returns the original uploaded image rather than a generated thumbnail.
+Flutter should render `view_all` after all objects in `data`.
 
+### Category and brand sections
+
+The administrator enters exact term IDs as a comma-separated ordered list. Only those terms are returned, including empty terms, and their entered order is preserved. There is no hide-empty setting.
+
+### Visual management
+
+The Home tab supports:
+
+- adding and deleting whole sections;
+- enabling or disabling each section;
+- drag-and-drop section ordering and up/down buttons;
+- custom API ID, title, subtitle, type, and Component;
+- optional direction, row, and column hints;
+- exact category and brand ID lists;
+- product filters and per-section product counts;
+- media-library image selection;
+- item-level ordering for banners and the existing quick-actions menu.
+
+No JSON editing is required.
