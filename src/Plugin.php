@@ -29,7 +29,6 @@ final class Plugin {
 
 		$this->booted = true;
 
-		$this->maybe_upgrade_home_preset();
 
 		add_action( 'init', array( $this, 'register_menu_location' ) );
 		add_action( 'rest_api_init', array( new Routes(), 'register' ) );
@@ -147,6 +146,7 @@ final class Plugin {
 		add_action( 'wp_update_nav_menu', array( Cache::class, 'bump_home_version' ) );
 		add_action( 'save_post_page', array( $this, 'bump_home_for_front_page' ), 10, 3 );
 		add_action( 'update_option_' . Config::OPTION_HOME_SECTIONS, array( Cache::class, 'bump_home_version' ) );
+		add_action( 'update_option_' . Config::OPTION_HOME_CONFIG, array( Cache::class, 'bump_home_version' ) );
 		add_action( 'update_option_' . Config::OPTION_HOME_BANNERS, array( Cache::class, 'bump_home_version' ) );
 	}
 }

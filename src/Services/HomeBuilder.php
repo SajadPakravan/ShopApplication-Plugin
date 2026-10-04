@@ -37,11 +37,13 @@ final class HomeBuilder {
 	}
 
 	private function configured_sections(): array {
-		$raw      = get_option( Config::OPTION_HOME_SECTIONS, '' );
-		$sections = is_string( $raw ) && $raw ? json_decode( $raw, true ) : null;
+		$configuration = Config::home_configuration();
+		$sections      = array();
 
-		if ( ! is_array( $sections ) ) {
-			$sections = Config::default_home_sections();
+		foreach ( $configuration['order'] as $id ) {
+			if ( isset( $configuration['sections'][ $id ] ) && is_array( $configuration['sections'][ $id ] ) ) {
+				$sections[] = $configuration['sections'][ $id ];
+			}
 		}
 
 		return apply_filters( 'app_api_home_sections', $sections );
@@ -50,12 +52,21 @@ final class HomeBuilder {
 	private function resolve_section( array $section, int $position ): ?array {
 		$type = isset( $section['type'] ) ? sanitize_key( $section['type'] ) : '';
 
-		// The response intentionally has no section ID or layout hints. The app
-		// chooses its renderer from `type`, and the array order is the render order.
+		$layout = isset( $section['layout'] ) && is_array( $section['layout'] )
+			? $section['layout']
+			: Config::default_layout_for_type( $type );
+
 		$base = array(
+			'id'       => isset( $section['id'] ) ? sanitize_key( $section['id'] ) : ( $type . '_' . $position ),
 			'type'     => $type,
 			'position' => $position,
 			'title'    => isset( $section['title'] ) ? sanitize_text_field( $section['title'] ) : '',
+			'subtitle' => isset( $section['subtitle'] ) ? sanitize_text_field( $section['subtitle'] ) : '',
+			'layout'   => array(
+				'component' => sanitize_key( $layout['component'] ?? $type ),
+				'direction' => in_array( $layout['direction'] ?? '', array( 'horizontal', 'vertical' ), true ) ? $layout['direction'] : 'horizontal',
+				'columns'   => min( 12, max( 1, absint( $layout['columns'] ?? 1 ) ) ),
+			),
 		);
 
 		if ( ! empty( $section['action'] ) && is_array( $section['action'] ) ) {
@@ -117,15 +128,16 @@ final class HomeBuilder {
 				continue;
 			}
 
-			$image = isset( $banner['image'] ) ? esc_url_raw( $banner['image'] ) : '';
-			if ( ! $image && ! empty( $banner['attachment_id'] ) ) {
-				$image = $this->attachment_image_url( absint( $banner['attachment_id'] ) );
-			}
+			$image = ! empty( $banner['attachment_id'] )
+				? $this->attachment_image_url( absint( $banner['attachment_id'] ) )
+				: $this->original_image_from_url( isset( $banner['image'] ) ? (string) $banner['image'] : '' );
 
 			$item = array(
-				'id'     => isset( $banner['id'] ) ? sanitize_key( $banner['id'] ) : 'banner_' . ( $index + 1 ),
-				'image'  => $image ?: '',
-				'action' => isset( $banner['action'] ) && is_array( $banner['action'] ) ? $this->resolve_action( $banner['action'] ) : array(),
+				'id'       => isset( $banner['id'] ) ? sanitize_key( $banner['id'] ) : 'banner_' . ( $index + 1 ),
+				'title'    => isset( $banner['title'] ) ? sanitize_text_field( $banner['title'] ) : '',
+				'subtitle' => isset( $banner['subtitle'] ) ? sanitize_text_field( $banner['subtitle'] ) : '',
+				'image'    => $image ?: '',
+				'action'   => isset( $banner['action'] ) && is_array( $banner['action'] ) ? $this->resolve_action( $banner['action'] ) : array(),
 			);
 
 			if ( ! empty( $banner['url'] ) ) {
@@ -147,16 +159,16 @@ final class HomeBuilder {
 				continue;
 			}
 
-			$image = isset( $item['image'] ) ? esc_url_raw( $item['image'] ) : '';
-			if ( ! $image && ! empty( $item['attachment_id'] ) ) {
-				$image = $this->attachment_image_url( absint( $item['attachment_id'] ) );
-			}
+			$image = ! empty( $item['attachment_id'] )
+				? $this->attachment_image_url( absint( $item['attachment_id'] ) )
+				: $this->original_image_from_url( isset( $item['image'] ) ? (string) $item['image'] : '' );
 
 			$result[] = array(
-				'id'     => isset( $item['id'] ) ? sanitize_key( $item['id'] ) : 'action_' . ( $index + 1 ),
-				'title'  => isset( $item['title'] ) ? sanitize_text_field( $item['title'] ) : '',
-				'image'  => $image ?: '',
-				'action' => isset( $item['action'] ) && is_array( $item['action'] ) ? $this->resolve_action( $item['action'] ) : array(),
+				'id'       => isset( $item['id'] ) ? sanitize_key( $item['id'] ) : 'action_' . ( $index + 1 ),
+				'title'    => isset( $item['title'] ) ? sanitize_text_field( $item['title'] ) : '',
+				'subtitle' => isset( $item['subtitle'] ) ? sanitize_text_field( $item['subtitle'] ) : '',
+				'image'    => $image ?: '',
+				'action'   => isset( $item['action'] ) && is_array( $item['action'] ) ? $this->resolve_action( $item['action'] ) : array(),
 			);
 		}
 
@@ -196,7 +208,8 @@ final class HomeBuilder {
 				'parent_id' => (int) $item->menu_item_parent,
 				'order'     => (int) $item->menu_order,
 				'title'     => sanitize_text_field( $item->title ),
-				'icon'      => $icon ? esc_url_raw( $icon ) : '',
+				'subtitle'  => sanitize_text_field( get_post_meta( $item->ID, '_app_api_subtitle', true ) ),
+				'icon'      => $icon ? $this->original_image_from_url( (string) $icon ) : '',
 				'action'    => $action,
 			);
 		}

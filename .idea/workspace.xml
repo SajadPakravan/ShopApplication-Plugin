@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="10fedbbb-3d05-4501-b2a3-705dd55ee990" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/0..ShopApplicaion.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/0..ShopApplicaion.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/php.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/php.xml" afterDir="false" />
-    </list>
+    <list default="true" id="10fedbbb-3d05-4501-b2a3-705dd55ee990" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -17,10 +14,10 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="PhpWorkspaceProjectConfiguration" interpreter_name="C:/WAMP/bin/php/php8.4.15/php.exe" />
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 2,
-  "fromUser": false
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3K6GNN09JdVsy3EHogWa6gXghp4" />
   <component name="ProjectViewState">
     <option name="flattenPackages" value="true" />
@@ -37,6 +34,7 @@
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
     "nodejs_package_manager_path": "npm",
     "settings.editor.selected.configurable": "preferences.keymap",
     "vue.rearranger.settings.migration": "true"
@@ -58,6 +56,7 @@
       <option name="presentableId" value="Default" />
       <updated>1790870563659</updated>
       <workItem from="1790870566586" duration="712000" />
+      <workItem from="1791052743907" duration="438000" />
     </task>
     <servers />
   </component>

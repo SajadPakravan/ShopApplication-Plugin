@@ -1,4 +1,4 @@
-# Application API v2.0.5
+# Application API v2.1.0
 
 Base namespace:
 
@@ -127,7 +127,11 @@ The repeated `visible` entry in the requested field list is represented once bec
 
 `GET /home`
 
-The top-level response is intentionally compact:
+The home endpoint remains parameter-free. Its content is configured in WordPress under:
+
+`WooCommerce > Application API > Home`
+
+The top-level response is:
 
 ```json
 {
@@ -136,126 +140,84 @@ The top-level response is intentionally compact:
 }
 ```
 
-`schema_version`, `currency`, and `generated_at` are not returned.
+The order of `sections` exactly matches the active order saved in the visual editor. Disabled sections are omitted completely.
 
-The `sections` array order is the exact Flutter render order. A section object has no public `id` and no `layout` object. Flutter selects its renderer from `type`:
+Every section includes stable identity and rendering information:
 
 ```json
 {
+  "id": "latest_products",
   "type": "products",
-  "position": 2,
-  "title": "پیشنهاد شگفت‌انگیز",
+  "position": 3,
+  "title": "جدیدترین محصولات",
+  "subtitle": "تازه‌های فروشگاه",
+  "layout": {
+    "component": "product_carousel",
+    "direction": "horizontal",
+    "columns": 1
+  },
   "data": []
 }
 ```
 
-Internal IDs may still appear in the server-side settings JSON so the plugin can migrate presets, but they are never exposed by `/home`.
+- `id` identifies the exact section instance.
+- `type` identifies the data family.
+- `layout` gives Flutter optional rendering hints.
+- `position` is generated from the saved active order.
+- `title` and `subtitle` always exist, even when empty.
 
-Supported home section types:
+### Visual WordPress editor
 
-- `banner_slider`
-- `promo_banners`
-- `action_menu`
-- `menu`
-- `products`
-- `categories`
-- `brands`
-- `custom`
+The home tab provides:
 
-The home preset does not include FAQ. FAQ/help content should be opened from a separate application menu and endpoint later.
+- enable/disable switches for every section;
+- drag-and-drop ordering plus up/down buttons;
+- section title and subtitle fields;
+- layout component, direction, and column fields;
+- per-section product count (`per_page`);
+- category and brand ID selectors entered as comma-separated IDs;
+- media-library selectors for slider banners, promotional banners, and menu icons;
+- editable title, subtitle, image/icon, and action for every banner/menu item;
+- responsive tabs reserved for future Shop, Categories, Product, and Account API settings.
 
-### Banner sections
-
-Banner items return `id`, full-quality `image`, and `action`. Banner `title` and `subtitle` are intentionally omitted.
+No JSON editing is required.
 
 ### Product sections
 
-Product home sections never expose pagination or query metadata. They always query page 1 and always sort newest first (`date desc`). Arbitrary product search, type, brand, tag, price, and ordering filters in legacy home JSON are ignored.
-
-The only general product-section setting is:
-
-```json
-{
-  "per_page": 10
-}
-```
-
-If omitted, `per_page` defaults to 10. It is capped at 30 for a single home section.
+Home product sections always use page 1 and date descending. The home editor controls `per_page`; when omitted it defaults to 10 and is capped at 30.
 
 Fixed sources:
 
-- `source: "on_sale"`: all sale products, newest first;
-- `source: "latest"`: all published products, newest first;
-- `source: "category"`: products belonging to the configured category IDs, newest first.
+- `on_sale`: newest sale products;
+- `latest`: newest published products;
+- `category`: newest products from the configured category IDs.
 
-The amazing-offers section uses `source: "on_sale"`, defaults to 10 products, and contains a separate `view_all` object after `data`. The app should render this object as the final horizontal slide rather than mixing a non-product object into the product array:
+The amazing-offers section also returns a separate `view_all` object. Flutter should render it after the product cards as the final slide.
+
+### Category and brand sections
+
+Enter IDs in the visual setting field, for example:
+
+`55,166,350`
+
+Only the selected IDs are returned and their entered order is preserved. This is used independently for special categories, shop-by-category, and popular brands.
+
+### Banners and action menu
+
+Each configured item returns:
 
 ```json
 {
-  "type": "products",
-  "title": "پیشنهاد شگفت‌انگیز",
-  "data": ["10 product cards"],
-  "view_all": {
-    "title": "مشاهده همه",
-    "action": {
-      "type": "products",
-      "on_sale": true
-    }
+  "id": "banner_slider-1",
+  "title": "",
+  "subtitle": "",
+  "image": "https://example.com/original-image.webp",
+  "action": {
+    "type": "category",
+    "id": 350
   }
 }
 ```
 
-### Selected category and brand sections
+Media-library attachment IDs are preferred so the API returns the original uploaded image rather than a generated thumbnail.
 
-For `categories` and `brands`, configure exact term IDs in `config.include`:
-
-```json
-{
-  "type": "categories",
-  "title": "دسته‌بندی‌های ویژه",
-  "config": {
-    "include": [55, 166, 167],
-    "hide_empty": false
-  }
-}
-```
-
-```json
-{
-  "type": "brands",
-  "title": "محبوب‌ترین برندها",
-  "config": {
-    "include": [313, 362, 367],
-    "hide_empty": false
-  }
-}
-```
-
-When `include` contains IDs, only those IDs are returned, in the same order, and fallback names/slugs are ignored. Name/slug lookup remains only as a backward-compatible fallback when `include` is empty.
-
-For Yademan System, version 2.0.5 ships a preset in the current public-homepage order:
-
-1. hero banners;
-2. quick-action menu;
-3. amazing offers;
-4. special categories;
-5. latest products;
-6. computer and accessories products;
-7. computer/hardware promotional banners;
-8. laptop and accessories products;
-9. speaker products;
-10. shop by category;
-11. popular brands;
-12. smartwatch banner.
-
-The quick-action preset follows the current site items: application, sale, purchase consulting, goods order, assembly order, repair order, return request, store payment, survey, and more.
-
-Manage the JSON configuration from **WooCommerce > Application API**.
-
-## Extension hooks
-
-- `app_api_brand_taxonomy`
-- `app_api_home_sections`
-- `app_api_home_banners`
-- `app_api_home_custom_section`
-- `app_api_home_unknown_section`
