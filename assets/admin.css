@@ -146,3 +146,9 @@
 .app-api-endpoint-card { padding:22px; margin-bottom:22px; }
 .app-api-endpoint-card .app-api-card-title { margin-bottom:16px; }
 .app-api-endpoint-form .submit { margin-top:16px; }
+
+.app-api-destination-field input:disabled {
+	background: #f2f4f7;
+	color: #98a2b3;
+	cursor: not-allowed;
+}

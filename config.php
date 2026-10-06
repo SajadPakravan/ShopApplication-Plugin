@@ -9,7 +9,6 @@ final class Config {
 	public const DEFAULT_PER_PAGE           = 20;
 	public const MAX_PER_PAGE               = 100;
 	public const DEFAULT_HOME_CACHE         = 60;
-	public const HOME_MENU_LOCATION         = 'app-api-home-menu';
 	public const OPTION_HOME_SECTIONS       = 'app_api_home_sections_json';
 	public const OPTION_HOME_CONFIG         = 'app_api_home_configuration';
 	public const OPTION_HOME_BANNERS        = 'app_api_home_banners_json';
@@ -22,33 +21,30 @@ final class Config {
 
 	/**
 	 * Types the administrator can add from the visual home-page API builder.
-	 * The menu type is preserved for the existing quick-actions section, but it
-	 * is intentionally not exposed as a new type in this release.
 	 */
 	public static function addable_section_types(): array {
 		return array(
-			'banner'     => 'بنر',
-			'products'   => 'محصولات',
+			'image'    => 'تصویر',
+			'products' => 'محصولات',
 			'category' => 'دسته‌بندی',
 			'brand'    => 'برند',
 		);
 	}
 
 	public static function allowed_section_types(): array {
-		return array_merge( array_keys( self::addable_section_types() ), array( 'menu' ) );
+		return array_keys( self::addable_section_types() );
 	}
 
 	public static function section_type_label( string $type ): string {
 		$labels = self::addable_section_types();
-		$labels['menu'] = 'منوی دسترسی سریع';
 		return $labels[ sanitize_key( $type ) ] ?? $type;
 	}
 
 	public static function default_layout_for_type( string $type ): array {
 		switch ( sanitize_key( $type ) ) {
-			case 'banner':
+			case 'image':
 				return array(
-					'component' => 'banner',
+					'component' => 'image',
 					'direction' => 'horizontal',
 					'rows'      => 1,
 					'columns'   => 1,
@@ -73,13 +69,6 @@ final class Config {
 					'direction' => 'horizontal',
 					'rows'      => 1,
 					'columns'   => 1,
-				);
-			case 'menu':
-				return array(
-					'component' => 'action_menu',
-					'direction' => 'horizontal',
-					'rows'      => 2,
-					'columns'   => 5,
 				);
 			default:
 				return array(
@@ -121,7 +110,7 @@ final class Config {
 			'layout'   => self::default_layout_for_type( $type ),
 		);
 
-		if ( 'banner' === $type || 'menu' === $type ) {
+		if ( 'image' === $type ) {
 			$section['data'] = array();
 		} elseif ( 'products' === $type ) {
 			$section['category']      = array();
@@ -204,8 +193,8 @@ final class Config {
 				),
 			);
 
-			if ( 'banner' === $type || 'menu' === $type ) {
-				$clean['data'] = isset( $section['data'] ) && is_array( $section['data'] ) ? array_values( $section['data'] ) : array();
+			if ( 'image' === $type ) {
+				$clean['data'] = self::normalize_image_items( $section['data'] ?? array() );
 			}
 
 			if ( 'products' === $type ) {
@@ -257,13 +246,57 @@ final class Config {
 		return array( 'order' => $order, 'sections' => $sections );
 	}
 
+	private static function normalize_image_items( $items ): array {
+		if ( ! is_array( $items ) ) {
+			return array();
+		}
+
+		$result = array();
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+
+			$action      = isset( $item['action'] ) && is_array( $item['action'] ) ? $item['action'] : array();
+			$action_type = sanitize_key( (string) ( $item['action_type'] ?? ( $action['type'] ?? '' ) ) );
+			if ( ! in_array( $action_type, array( 'product', 'category', 'brand', 'tag', 'url' ), true ) ) {
+				$action_type = '';
+			}
+
+			$destination = $item['action_value'] ?? ( $action['destination'] ?? null );
+			if ( null === $destination ) {
+				$destination = $action['id'] ?? ( $action['url'] ?? ( $action['name'] ?? null ) );
+			}
+
+			if ( 'url' === $action_type ) {
+				$destination = esc_url_raw( (string) $destination );
+				$destination = '' !== $destination ? $destination : null;
+			} elseif ( $action_type ) {
+				$destination = absint( $destination );
+				$destination = $destination > 0 ? $destination : null;
+			} else {
+				$destination = null;
+			}
+
+			$result[] = array(
+				'title'         => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
+				'subtitle'      => sanitize_text_field( (string) ( $item['subtitle'] ?? '' ) ),
+				'attachment_id' => absint( $item['attachment_id'] ?? 0 ),
+				'image'         => esc_url_raw( (string) ( $item['image'] ?? '' ) ),
+				'action'        => array(
+					'type'        => $action_type ?: null,
+					'destination' => $destination,
+				),
+			);
+		}
+
+		return $result;
+	}
+
 	private static function normalize_section_type( string $type ): string {
 		$type = sanitize_key( $type );
-		if ( in_array( $type, array( 'banner_slider', 'promo_banners' ), true ) ) {
-			return 'banner';
-		}
-		if ( in_array( $type, array( 'action_menu', 'menu' ), true ) ) {
-			return 'menu';
+		if ( in_array( $type, array( 'image', 'banner', 'banner_slider', 'promo_banners', 'action_menu', 'menu', 'quick_actions' ), true ) ) {
+			return 'image';
 		}
 		if ( in_array( $type, array( 'categories', 'category' ), true ) ) {
 			return 'category';
@@ -333,7 +366,7 @@ final class Config {
 		return array(
 			array(
 				'id'       => 'hero_banners',
-				'type'     => 'banner',
+				'type'     => 'image',
 				'enabled'  => true,
 				'title'    => '',
 				'subtitle' => '',
@@ -362,7 +395,7 @@ final class Config {
 		return array(
 			array(
 				'id'       => 'hero_banners',
-				'type'     => 'banner',
+				'type'     => 'image',
 				'enabled'  => true,
 				'title'    => '',
 				'subtitle' => '',
@@ -374,22 +407,22 @@ final class Config {
 			),
 			array(
 				'id'       => 'quick_actions',
-				'type'     => 'menu',
+				'type'     => 'image',
 				'enabled'  => true,
 				'title'    => '',
 				'subtitle' => '',
 				'layout'   => array( 'component' => 'action_menu', 'direction' => 'horizontal', 'rows' => 2, 'columns' => 5 ),
 				'data'     => array(
-					array( 'id' => 'application', 'title' => 'اپلیکیشن فروشگاه', 'subtitle' => '', 'image' => $uploads . '2023/02/33f94db0e93a29b08b5c45d7932dbb114791155d_1658329987.png', 'action' => array( 'type' => 'app_download' ) ),
-					array( 'id' => 'sale', 'title' => 'حراجی', 'subtitle' => '', 'image' => $uploads . '2023/02/258db5bf0ff7b28dbae1bfb3dfaa71bfff32faf9_1654679397.png', 'action' => array( 'type' => 'products', 'on_sale' => true ) ),
-					array( 'id' => 'purchase_consulting', 'title' => 'مشاوره خرید', 'subtitle' => '', 'image' => $uploads . '2023/02/6c69096a524add2d4646cd162dfa5f66d4ddceac_1668952039.png', 'action' => array( 'type' => 'purchase_consulting' ) ),
-					array( 'id' => 'goods_order', 'title' => 'سفارش اجناس', 'subtitle' => '', 'image' => $uploads . '2023/02/17bb6daa07ae2ec11867fb7320ed6f79b26f1f4b_1648897081.png', 'action' => array( 'type' => 'goods_order' ) ),
-					array( 'id' => 'assembly_order', 'title' => 'سفارش مونتاژ', 'subtitle' => '', 'image' => $uploads . '2023/02/d0dc31c892be8cf1408e4e14580b3f479da66bd1_1648897133.png', 'action' => array( 'type' => 'assembly_order' ) ),
-					array( 'id' => 'repair_order', 'title' => 'سفارش تعمیرات', 'subtitle' => '', 'image' => $uploads . '2023/02/d919c238a583cacd2048a254e5623f81dd11ab24_16736372.png', 'action' => array( 'type' => 'repair_order' ) ),
-					array( 'id' => 'return_request', 'title' => 'درخواست مرجوعی', 'subtitle' => '', 'image' => $uploads . '2023/02/f18a182f7c300af9ce3eb8f47201ef340fc87eb3_1670930133.png', 'action' => array( 'type' => 'return_request' ) ),
-					array( 'id' => 'store_payment', 'title' => 'پرداخت فروشگاه', 'subtitle' => '', 'image' => $uploads . '2023/02/ac127167132653d14c758748b07824a6a7643a31_1648897095.png', 'action' => array( 'type' => 'store_payment' ) ),
-					array( 'id' => 'survey', 'title' => 'نظرسنجی فروشگاه', 'subtitle' => '', 'image' => $uploads . '2023/02/6b21cc5a4ebe6332b778a2f4725ed3fdaa78e014_1673693837.png', 'action' => array( 'type' => 'survey' ) ),
-					array( 'id' => 'more', 'title' => 'بیشتر', 'subtitle' => '', 'image' => '', 'action' => array( 'type' => 'products' ) ),
+					array( 'title' => 'اپلیکیشن فروشگاه', 'subtitle' => '', 'image' => $uploads . '2023/02/33f94db0e93a29b08b5c45d7932dbb114791155d_1658329987.png', 'action' => array( 'type' => null, 'destination' => null ) ),
+					array( 'title' => 'حراجی', 'subtitle' => '', 'image' => $uploads . '2023/02/258db5bf0ff7b28dbae1bfb3dfaa71bfff32faf9_1654679397.png', 'action' => array( 'type' => null, 'destination' => null ) ),
+					array( 'title' => 'مشاوره خرید', 'subtitle' => '', 'image' => $uploads . '2023/02/6c69096a524add2d4646cd162dfa5f66d4ddceac_1668952039.png', 'action' => array( 'type' => null, 'destination' => null ) ),
+					array( 'title' => 'سفارش اجناس', 'subtitle' => '', 'image' => $uploads . '2023/02/17bb6daa07ae2ec11867fb7320ed6f79b26f1f4b_1648897081.png', 'action' => array( 'type' => null, 'destination' => null ) ),
+					array( 'title' => 'سفارش مونتاژ', 'subtitle' => '', 'image' => $uploads . '2023/02/d0dc31c892be8cf1408e4e14580b3f479da66bd1_1648897133.png', 'action' => array( 'type' => null, 'destination' => null ) ),
+					array( 'title' => 'سفارش تعمیرات', 'subtitle' => '', 'image' => $uploads . '2023/02/d919c238a583cacd2048a254e5623f81dd11ab24_16736372.png', 'action' => array( 'type' => null, 'destination' => null ) ),
+					array( 'title' => 'درخواست مرجوعی', 'subtitle' => '', 'image' => $uploads . '2023/02/f18a182f7c300af9ce3eb8f47201ef340fc87eb3_1670930133.png', 'action' => array( 'type' => null, 'destination' => null ) ),
+					array( 'title' => 'پرداخت فروشگاه', 'subtitle' => '', 'image' => $uploads . '2023/02/ac127167132653d14c758748b07824a6a7643a31_1648897095.png', 'action' => array( 'type' => null, 'destination' => null ) ),
+					array( 'title' => 'نظرسنجی فروشگاه', 'subtitle' => '', 'image' => $uploads . '2023/02/6b21cc5a4ebe6332b778a2f4725ed3fdaa78e014_1673693837.png', 'action' => array( 'type' => null, 'destination' => null ) ),
+					array( 'title' => 'بیشتر', 'subtitle' => '', 'image' => '', 'action' => array( 'type' => null, 'destination' => null ) ),
 				),
 			),
 			array(
@@ -444,7 +477,7 @@ final class Config {
 			),
 			array(
 				'id'       => 'computer_promotions',
-				'type'     => 'banner',
+				'type'     => 'image',
 				'enabled'  => true,
 				'title'    => '',
 				'subtitle' => '',
@@ -506,7 +539,7 @@ final class Config {
 			),
 			array(
 				'id'       => 'smartwatch_banner',
-				'type'     => 'banner',
+				'type'     => 'image',
 				'enabled'  => true,
 				'title'    => '',
 				'subtitle' => '',

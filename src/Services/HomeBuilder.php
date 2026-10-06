@@ -76,12 +76,8 @@ final class HomeBuilder {
 		);
 
 		switch ( $type ) {
-			case 'banner':
-				$base['data'] = $this->media_items( $section, 'banner' );
-				return $base;
-
-			case 'menu':
-				$base['data'] = $this->media_items( $section, 'menu' );
+			case 'image':
+				$base['data'] = $this->image_items( $section );
 				return $base;
 
 			case 'products':
@@ -102,11 +98,11 @@ final class HomeBuilder {
 		return null;
 	}
 
-	private function media_items( array $section, string $kind ): array {
+	private function image_items( array $section ): array {
 		$items  = isset( $section['data'] ) && is_array( $section['data'] ) ? $section['data'] : array();
 		$result = array();
 
-		foreach ( $items as $index => $item ) {
+		foreach ( $items as $item ) {
 			if ( ! is_array( $item ) ) {
 				continue;
 			}
@@ -115,24 +111,17 @@ final class HomeBuilder {
 				? $this->attachment_image_url( absint( $item['attachment_id'] ) )
 				: $this->original_image_from_url( (string) ( $item['image'] ?? '' ) );
 
-			$formatted = array(
+			$result[] = array(
 				'title'    => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
 				'subtitle' => sanitize_text_field( (string) ( $item['subtitle'] ?? '' ) ),
 				'image'    => $image ?: '',
+				'action'   => $this->resolve_action(
+					isset( $item['action'] ) && is_array( $item['action'] ) ? $item['action'] : array()
+				),
 			);
-
-			if ( 'menu' === $kind ) {
-				$formatted = array_merge(
-					array( 'id' => $this->api_id( (string) ( $item['id'] ?? '' ), 'menu_' . ( $index + 1 ) ) ),
-					$formatted,
-					array( 'action' => isset( $item['action'] ) && is_array( $item['action'] ) ? $this->resolve_action( $item['action'] ) : array() )
-				);
-			}
-
-			$result[] = $formatted;
 		}
 
-		return 'banner' === $kind ? apply_filters( 'app_api_home_banners', $result, $section ) : $result;
+		return apply_filters( 'app_api_home_images', $result, $section );
 	}
 
 	private function products( array $section ): array {
@@ -216,7 +205,7 @@ final class HomeBuilder {
 			)
 		);
 
-		return $this->format_terms( $terms, 'category' );
+		return $this->format_terms( $terms );
 	}
 
 	private function brands( array $section ): array {
@@ -243,10 +232,10 @@ final class HomeBuilder {
 			)
 		);
 
-		return $this->format_terms( $terms, 'brand' );
+		return $this->format_terms( $terms );
 	}
 
-	private function format_terms( $terms, string $action_type ): array {
+	private function format_terms( $terms ): array {
 		if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
 			return array();
 		}
@@ -254,29 +243,20 @@ final class HomeBuilder {
 		$result = array();
 		foreach ( $terms as $term ) {
 			if ( $term instanceof \WP_Term ) {
-				$result[] = $this->format_term( $term, $action_type );
+				$result[] = $this->format_term( $term );
 			}
 		}
 		return $result;
 	}
 
-	private function format_term( \WP_Term $term, string $term_type ): array {
-		$data = array(
+	private function format_term( \WP_Term $term ): array {
+		return array(
 			'id'     => (int) $term->term_id,
 			'name'   => $term->name,
 			'parent' => (int) $term->parent,
 			'count'  => (int) $term->count,
 			'image'  => $this->term_image_url( $term ),
 		);
-
-		if ( 'brand' === $term_type ) {
-			$data['action'] = array(
-				'type' => 'brand',
-				'id'   => (int) $term->term_id,
-			);
-		}
-
-		return $data;
 	}
 
 	private function term_image_url( \WP_Term $term ): string {
@@ -377,43 +357,30 @@ final class HomeBuilder {
 
 	private function resolve_action( array $action ): array {
 		$type = sanitize_key( (string) ( $action['type'] ?? '' ) );
-		if ( ! $type || 'none' === $type ) {
-			return array();
+		if ( ! in_array( $type, array( 'product', 'category', 'brand', 'tag', 'url' ), true ) ) {
+			return array(
+				'type'        => null,
+				'destination' => null,
+			);
 		}
 
-		$result = array( 'type' => $type );
-
-		if ( in_array( $type, array( 'category', 'brand', 'tag' ), true ) ) {
-			$taxonomy = 'category' === $type ? 'product_cat' : ( 'tag' === $type ? 'product_tag' : Taxonomy::brand_taxonomy() );
-			$id       = ! empty( $action['id'] ) ? absint( $action['id'] ) : 0;
-			if ( ! $id && $taxonomy ) {
-				$term = $this->find_term( $taxonomy, (string) ( $action['name'] ?? '' ), (string) ( $action['slug'] ?? '' ) );
-				$id   = $term ? (int) $term->term_id : 0;
-			}
-			if ( $id ) {
-				$result['id'] = $id;
-			}
-			return $result;
-		}
-
-		if ( 'product' === $type && ! empty( $action['id'] ) ) {
-			$result['id'] = absint( $action['id'] );
-			return $result;
+		$destination = $action['destination'] ?? null;
+		if ( null === $destination ) {
+			$destination = $action['id'] ?? ( $action['url'] ?? ( $action['name'] ?? null ) );
 		}
 
 		if ( 'url' === $type ) {
-			$result['url'] = esc_url_raw( (string) ( $action['url'] ?? '' ) );
-			return $result;
+			$destination = esc_url_raw( (string) $destination );
+			$destination = '' !== $destination ? $destination : null;
+		} else {
+			$destination = absint( $destination );
+			$destination = $destination > 0 ? $destination : null;
 		}
 
-		foreach ( $action as $key => $value ) {
-			$key = sanitize_key( (string) $key );
-			if ( in_array( $key, array( 'type', 'name', 'slug' ), true ) ) {
-				continue;
-			}
-			$result[ $key ] = $this->sanitize_value( $value );
-		}
-		return $result;
+		return array(
+			'type'        => $type,
+			'destination' => $destination,
+		);
 	}
 
 	private function resolve_term_ids( string $taxonomy, $names, $slugs ): array {

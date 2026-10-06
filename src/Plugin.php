@@ -30,7 +30,6 @@ final class Plugin {
 		$this->booted = true;
 
 
-		add_action( 'init', array( $this, 'register_menu_location' ) );
 		add_action( 'rest_api_init', array( new Routes(), 'register' ) );
 
 		if ( is_admin() ) {
@@ -42,13 +41,6 @@ final class Plugin {
 		if ( ! $this->woocommerce_available() ) {
 			add_action( 'admin_notices', array( $this, 'woocommerce_notice' ) );
 		}
-	}
-
-	public function register_menu_location(): void {
-		register_nav_menu(
-			Config::HOME_MENU_LOCATION,
-			__( 'Application API home menu', 'application-api' )
-		);
 	}
 
 	public function woocommerce_available(): bool {

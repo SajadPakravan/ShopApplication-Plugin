@@ -102,11 +102,10 @@ final class SettingsPage {
 				'deleteItem'       => 'این آیتم حذف شود؟',
 				'sectionTypeNames' => Config::addable_section_types(),
 				'defaultLayouts'   => array(
-					'banner'     => Config::default_layout_for_type( 'banner' ),
-					'products'   => Config::default_layout_for_type( 'products' ),
+					'image'    => Config::default_layout_for_type( 'image' ),
+					'products' => Config::default_layout_for_type( 'products' ),
 					'category' => Config::default_layout_for_type( 'category' ),
 					'brand'    => Config::default_layout_for_type( 'brand' ),
-					'menu'       => Config::default_layout_for_type( 'menu' ),
 				),
 			)
 		);
@@ -171,8 +170,8 @@ final class SettingsPage {
 				),
 			);
 
-			if ( 'banner' === $type || 'menu' === $type ) {
-				$clean['data'] = $this->sanitize_items( $section['data'] ?? array(), $type );
+			if ( 'image' === $type ) {
+				$clean['data'] = $this->sanitize_items( $section['data'] ?? array() );
 			}
 
 			if ( 'products' === $type ) {
@@ -211,78 +210,57 @@ final class SettingsPage {
 		return $result;
 	}
 
-	private function sanitize_items( $items, string $section_type ): array {
+	private function sanitize_items( $items ): array {
 		if ( ! is_array( $items ) ) {
 			return array();
 		}
 
-		$result   = array();
-		$used_ids = array();
+		$result = array();
 		foreach ( $items as $item ) {
 			if ( ! is_array( $item ) ) {
 				continue;
 			}
 
-			$title         = sanitize_text_field( (string) ( $item['title'] ?? '' ) );
-			$subtitle      = sanitize_text_field( (string) ( $item['subtitle'] ?? '' ) );
-			$attachment_id = absint( $item['attachment_id'] ?? 0 );
-			$image         = esc_url_raw( (string) ( $item['image'] ?? '' ) );
-
-			$clean = array(
-				'title'         => $title,
-				'subtitle'      => $subtitle,
-				'attachment_id' => $attachment_id,
-				'image'         => $image,
-			);
-
-			if ( 'menu' === $section_type ) {
-				$fallback = 'menu_' . ( count( $result ) + 1 );
-				$id       = $this->sanitize_api_id( (string) ( $item['id'] ?? '' ), $fallback );
-				$base_id  = $id;
-				$suffix   = 2;
-				while ( isset( $used_ids[ $id ] ) ) {
-					$id = $base_id . '_' . $suffix;
-					++$suffix;
-				}
-				$used_ids[ $id ] = true;
-
-				$action_type  = sanitize_key( (string) ( $item['action_type'] ?? ( $item['action']['type'] ?? '' ) ) );
-				$action_value = sanitize_text_field( (string) ( $item['action_value'] ?? '' ) );
-				if ( ! $action_value && ! empty( $item['action'] ) && is_array( $item['action'] ) ) {
-					$action_value = isset( $item['action']['id'] ) ? (string) absint( $item['action']['id'] ) : (string) ( $item['action']['url'] ?? ( $item['action']['name'] ?? '' ) );
-				}
-
-				$clean = array_merge(
-					array( 'id' => $id ),
-					$clean,
-					array( 'action' => $this->sanitize_action( $action_type, $action_value ) )
-				);
+			$action       = isset( $item['action'] ) && is_array( $item['action'] ) ? $item['action'] : array();
+			$action_type  = sanitize_key( (string) ( $item['action_type'] ?? ( $action['type'] ?? '' ) ) );
+			$action_value = $item['action_value'] ?? ( $action['destination'] ?? null );
+			if ( null === $action_value ) {
+				$action_value = $action['id'] ?? ( $action['url'] ?? ( $action['name'] ?? null ) );
 			}
 
-			$result[] = $clean;
+			$result[] = array(
+				'title'         => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
+				'subtitle'      => sanitize_text_field( (string) ( $item['subtitle'] ?? '' ) ),
+				'attachment_id' => absint( $item['attachment_id'] ?? 0 ),
+				'image'         => esc_url_raw( (string) ( $item['image'] ?? '' ) ),
+				'action'        => $this->sanitize_action( $action_type, $action_value ),
+			);
 		}
 
 		return $result;
 	}
 
-	private function sanitize_action( string $type, string $value ): array {
+	private function sanitize_action( string $type, $value ): array {
 		$type = sanitize_key( $type );
-		if ( ! $type || 'none' === $type ) {
-			return array();
+		if ( ! in_array( $type, array( 'product', 'category', 'brand', 'tag', 'url' ), true ) ) {
+			return array(
+				'type'        => null,
+				'destination' => null,
+			);
 		}
 
-		$action = array( 'type' => $type );
-		if ( in_array( $type, array( 'category', 'brand', 'tag', 'product' ), true ) ) {
-			if ( is_numeric( $value ) ) {
-				$action['id'] = absint( $value );
-			} elseif ( '' !== trim( $value ) ) {
-				$action['name'] = sanitize_text_field( $value );
-			}
-		} elseif ( 'url' === $type ) {
-			$action['url'] = esc_url_raw( $value );
+		if ( 'url' === $type ) {
+			$destination = esc_url_raw( (string) $value );
+			$destination = '' !== $destination ? $destination : null;
+		} else {
+			$destination = absint( $value );
+			$destination = $destination > 0 ? $destination : null;
 		}
 
-		return $action;
+		return array(
+			'type'        => $type,
+			'destination' => $destination,
+		);
 	}
 
 
@@ -524,8 +502,7 @@ final class SettingsPage {
 				<div class="app-api-type-panel" data-type-panel="products" <?php echo 'products' !== $type ? 'hidden' : ''; ?>><?php $this->render_products_settings( $name, $section ); ?></div>
 				<div class="app-api-type-panel" data-type-panel="category" <?php echo 'category' !== $type ? 'hidden' : ''; ?>><?php $this->render_terms_settings( $name, $section, 'category' ); ?></div>
 				<div class="app-api-type-panel" data-type-panel="brand" <?php echo 'brand' !== $type ? 'hidden' : ''; ?>><?php $this->render_terms_settings( $name, $section, 'brand' ); ?></div>
-				<div class="app-api-type-panel" data-type-panel="banner" <?php echo 'banner' !== $type ? 'hidden' : ''; ?>><?php $this->render_repeater( $key, 'banner', $section['data'] ?? array(), $name ); ?></div>
-				<div class="app-api-type-panel" data-type-panel="menu" <?php echo 'menu' !== $type ? 'hidden' : ''; ?>><?php $this->render_repeater( $key, 'menu', $section['data'] ?? array(), $name ); ?></div>
+				<div class="app-api-type-panel" data-type-panel="image" <?php echo 'image' !== $type ? 'hidden' : ''; ?>><?php $this->render_repeater( $key, $section['data'] ?? array(), $name ); ?></div>
 			</div>
 		</details>
 		<?php
@@ -557,45 +534,47 @@ final class SettingsPage {
 		<?php
 	}
 
-	private function render_repeater( string $section_key, string $type, array $items, string $base_name ): void {
-		$is_menu = 'menu' === $type;
+	private function render_repeater( string $section_key, array $items, string $base_name ): void {
 		?>
-		<div class="app-api-subcard app-api-repeater" data-section="<?php echo esc_attr( $section_key ); ?>" data-kind="<?php echo esc_attr( $is_menu ? 'menu' : 'banner' ); ?>">
-			<div class="app-api-repeater-header"><div><h4><?php echo $is_menu ? 'آیتم‌های منو' : 'لیست بنرها'; ?></h4><p><?php echo $is_menu ? 'آیکون، عنوان و مقصد هر گزینه منو را مشخص و ترتیبشان را با درگ تغییر بده.' : 'یک یا چند بنر بساز؛ تعداد سطر و ستون از تنظیمات چیدمان همین بخش خوانده می‌شود.'; ?></p></div><button type="button" class="button button-secondary app-api-add-item"><span class="dashicons dashicons-plus-alt2"></span> افزودن آیتم</button></div>
+		<div class="app-api-subcard app-api-repeater" data-section="<?php echo esc_attr( $section_key ); ?>" data-kind="image">
+			<div class="app-api-repeater-header"><div><h4>لیست تصاویر</h4><p>تصویر، عنوان، زیرعنوان و مقصد هر آیتم را مشخص کن و ترتیب نمایش را با درگ تغییر بده.</p></div><button type="button" class="button button-secondary app-api-add-item"><span class="dashicons dashicons-plus-alt2"></span> افزودن تصویر</button></div>
 			<div class="app-api-items-sortable">
 				<?php foreach ( $items as $index => $item ) : ?>
-					<?php $this->render_repeater_item( $type, (string) $index, is_array( $item ) ? $item : array(), $base_name ); ?>
+					<?php $this->render_repeater_item( (string) $index, is_array( $item ) ? $item : array(), $base_name ); ?>
 				<?php endforeach; ?>
 			</div>
 		</div>
 		<?php
 	}
 
-	private function render_repeater_item( string $type, string $index, array $item, string $base_name ): void {
-		$is_menu       = 'menu' === $type;
+	private function render_repeater_item( string $index, array $item, string $base_name ): void {
 		$item_name     = $base_name . '[data][' . $index . ']';
 		$action        = isset( $item['action'] ) && is_array( $item['action'] ) ? $item['action'] : array();
 		$action_type   = sanitize_key( (string) ( $action['type'] ?? 'none' ) );
-		$action_value  = isset( $action['id'] ) ? (string) $action['id'] : (string) ( $action['url'] ?? ( $action['name'] ?? '' ) );
+		$action_value  = $action['destination'] ?? null;
+		if ( null === $action_value ) {
+			$action_value = $action['id'] ?? ( $action['url'] ?? ( $action['name'] ?? '' ) );
+		}
 		$image         = esc_url( (string) ( $item['image'] ?? '' ) );
 		$attachment_id = absint( $item['attachment_id'] ?? 0 );
+		$destination_disabled = ! in_array( $action_type, array( 'product', 'category', 'brand', 'tag', 'url' ), true );
+		$destination_label    = 'url' === $action_type ? 'لینک مقصد' : ( $destination_disabled ? 'بدون مقصد' : 'شناسه مقصد' );
 		?>
 		<div class="app-api-repeater-item" data-item-index="<?php echo esc_attr( $index ); ?>">
-			<div class="app-api-item-topbar"><span class="dashicons dashicons-move app-api-item-drag"></span><strong><?php echo esc_html( $item['title'] ?? ( $is_menu ? 'گزینه منو' : 'بنر' ) ); ?></strong><button type="button" class="button-link-delete app-api-remove-item">حذف</button></div>
+			<div class="app-api-item-topbar"><span class="dashicons dashicons-move app-api-item-drag"></span><strong><?php echo esc_html( $item['title'] ?? 'تصویر' ); ?></strong><button type="button" class="button-link-delete app-api-remove-item">حذف</button></div>
 			<div class="app-api-item-content">
 				<div class="app-api-media-field">
 					<div class="app-api-image-preview <?php echo $image ? 'has-image' : ''; ?>"><?php if ( $image ) : ?><img src="<?php echo esc_url( $image ); ?>" alt=""><?php else : ?><span class="dashicons dashicons-format-image"></span><small>تصویری انتخاب نشده</small><?php endif; ?></div>
 					<input type="hidden" class="app-api-attachment-id" name="<?php echo esc_attr( $item_name ); ?>[attachment_id]" value="<?php echo esc_attr( $attachment_id ); ?>">
 					<input type="hidden" class="app-api-image-url" name="<?php echo esc_attr( $item_name ); ?>[image]" value="<?php echo esc_attr( $image ); ?>">
-					<button type="button" class="button app-api-select-image"><?php echo $is_menu ? 'انتخاب آیکون' : 'انتخاب تصویر'; ?></button>
+					<button type="button" class="button app-api-select-image">انتخاب تصویر</button>
 				</div>
 				<div class="app-api-item-fields">
-					<?php if ( $is_menu ) : ?>
-						<div class="app-api-field-grid three-columns"><label><span>ID آیتم</span><input type="text" dir="ltr" name="<?php echo esc_attr( $item_name ); ?>[id]" value="<?php echo esc_attr( $item['id'] ?? '' ); ?>" placeholder="اختیاری"></label><label><span>عنوان</span><input type="text" name="<?php echo esc_attr( $item_name ); ?>[title]" value="<?php echo esc_attr( $item['title'] ?? '' ); ?>"></label><label><span>زیرعنوان</span><input type="text" name="<?php echo esc_attr( $item_name ); ?>[subtitle]" value="<?php echo esc_attr( $item['subtitle'] ?? '' ); ?>"></label></div>
-						<div class="app-api-field-grid two-columns"><label><span>نوع مقصد</span><select name="<?php echo esc_attr( $item_name ); ?>[action_type]" class="app-api-action-type"><?php $this->render_action_options( $action_type ); ?></select></label><label><span>آیدی یا لینک مقصد</span><input type="text" dir="ltr" name="<?php echo esc_attr( $item_name ); ?>[action_value]" value="<?php echo esc_attr( $action_value ); ?>" placeholder="مثلاً 350 یا https://..."></label></div>
-					<?php else : ?>
-						<div class="app-api-field-grid two-columns"><label><span>عنوان</span><input type="text" name="<?php echo esc_attr( $item_name ); ?>[title]" value="<?php echo esc_attr( $item['title'] ?? '' ); ?>"></label><label><span>زیرعنوان</span><input type="text" name="<?php echo esc_attr( $item_name ); ?>[subtitle]" value="<?php echo esc_attr( $item['subtitle'] ?? '' ); ?>"></label></div>
-					<?php endif; ?>
+					<div class="app-api-field-grid two-columns"><label><span>عنوان</span><input type="text" name="<?php echo esc_attr( $item_name ); ?>[title]" value="<?php echo esc_attr( $item['title'] ?? '' ); ?>"></label><label><span>زیرعنوان</span><input type="text" name="<?php echo esc_attr( $item_name ); ?>[subtitle]" value="<?php echo esc_attr( $item['subtitle'] ?? '' ); ?>"></label></div>
+					<div class="app-api-field-grid two-columns app-api-action-fields">
+						<label><span>نوع مقصد</span><select name="<?php echo esc_attr( $item_name ); ?>[action_type]" class="app-api-action-type"><?php $this->render_action_options( $action_type ); ?></select></label>
+						<label class="app-api-destination-field"><span class="app-api-destination-label"><?php echo esc_html( $destination_label ); ?></span><input type="text" dir="ltr" class="app-api-action-value" name="<?php echo esc_attr( $item_name ); ?>[action_value]" value="<?php echo esc_attr( $action_value ); ?>" <?php disabled( $destination_disabled ); ?>></label>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -604,21 +583,12 @@ final class SettingsPage {
 
 	private function render_action_options( string $selected ): void {
 		$options = array(
-			'none'                => 'بدون عملیات',
-			'category'            => 'دسته‌بندی محصول',
-			'product'             => 'محصول',
-			'products'            => 'صفحه محصولات',
-			'brand'               => 'برند',
-			'tag'                 => 'برچسب',
-			'url'                 => 'لینک دلخواه',
-			'app_download'        => 'دانلود اپلیکیشن',
-			'purchase_consulting' => 'مشاوره خرید',
-			'goods_order'         => 'سفارش اجناس',
-			'assembly_order'      => 'سفارش مونتاژ',
-			'repair_order'        => 'سفارش تعمیرات',
-			'return_request'      => 'درخواست مرجوعی',
-			'store_payment'       => 'پرداخت فروشگاه',
-			'survey'              => 'نظرسنجی',
+			'none'     => 'بدون عملیات',
+			'product'  => 'محصول',
+			'category' => 'دسته‌بندی',
+			'brand'    => 'برند',
+			'tag'      => 'برچسب',
+			'url'      => 'لینک',
 		);
 		foreach ( $options as $value => $label ) {
 			printf( '<option value="%1$s" %2$s>%3$s</option>', esc_attr( $value ), selected( $selected, $value, false ), esc_html( $label ) );

@@ -11,9 +11,6 @@
 
 	function typeLabel(type) {
 		var names = (window.appApiAdmin && appApiAdmin.sectionTypeNames) || {};
-		if (type === 'menu') {
-			return 'منوی دسترسی سریع';
-		}
 		return names[type] || type;
 	}
 
@@ -62,43 +59,57 @@
 
 	function actionOptions() {
 		var options = {
-			none: 'بدون عملیات', category: 'دسته‌بندی محصول', product: 'محصول', products: 'صفحه محصولات',
-			brand: 'برند', tag: 'برچسب', url: 'لینک دلخواه', app_download: 'دانلود اپلیکیشن',
-			purchase_consulting: 'مشاوره خرید', goods_order: 'سفارش اجناس', assembly_order: 'سفارش مونتاژ',
-			repair_order: 'سفارش تعمیرات', return_request: 'درخواست مرجوعی', store_payment: 'پرداخت فروشگاه', survey: 'نظرسنجی'
+			none: 'بدون عملیات',
+			product: 'محصول',
+			category: 'دسته‌بندی',
+			brand: 'برند',
+			tag: 'برچسب',
+			url: 'لینک'
 		};
 		return Object.keys(options).map(function (key) {
 			return '<option value="' + key + '">' + options[key] + '</option>';
 		}).join('');
 	}
 
-	function newRepeaterItem(sectionKey, kind) {
+	function newRepeaterItem(sectionKey) {
 		var index = 'new_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
 		var base = optionName + '[sections][' + sectionKey + '][data][' + index + ']';
-		var isMenu = kind === 'menu';
-		var imageButton = isMenu ? 'انتخاب آیکون' : 'انتخاب تصویر';
-		var itemTitle = isMenu ? 'گزینه منو' : 'بنر جدید';
-		var fields = '';
-
-		if (isMenu) {
-			fields = '<div class="app-api-field-grid three-columns"><label><span>ID آیتم</span><input type="text" dir="ltr" name="' + base + '[id]" value="" placeholder="اختیاری"></label>' +
-				'<label><span>عنوان</span><input type="text" name="' + base + '[title]" value=""></label>' +
-				'<label><span>زیرعنوان</span><input type="text" name="' + base + '[subtitle]" value=""></label></div>' +
-				'<div class="app-api-field-grid two-columns"><label><span>نوع مقصد</span><select name="' + base + '[action_type]" class="app-api-action-type">' + actionOptions() + '</select></label>' +
-				'<label><span>آیدی یا لینک مقصد</span><input type="text" dir="ltr" name="' + base + '[action_value]" value="" placeholder="مثلاً 350 یا https://..."></label></div>';
-		} else {
-			fields = '<div class="app-api-field-grid two-columns"><label><span>عنوان</span><input type="text" name="' + base + '[title]" value=""></label>' +
-				'<label><span>زیرعنوان</span><input type="text" name="' + base + '[subtitle]" value=""></label></div>';
-		}
 
 		return '<div class="app-api-repeater-item" data-item-index="' + index + '">' +
-			'<div class="app-api-item-topbar"><span class="dashicons dashicons-move app-api-item-drag"></span><strong>' + itemTitle + '</strong><button type="button" class="button-link-delete app-api-remove-item">حذف</button></div>' +
+			'<div class="app-api-item-topbar"><span class="dashicons dashicons-move app-api-item-drag"></span><strong>تصویر جدید</strong><button type="button" class="button-link-delete app-api-remove-item">حذف</button></div>' +
 			'<div class="app-api-item-content">' +
 			'<div class="app-api-media-field"><div class="app-api-image-preview"><span class="dashicons dashicons-format-image"></span><small>تصویری انتخاب نشده</small></div>' +
 			'<input type="hidden" class="app-api-attachment-id" name="' + base + '[attachment_id]" value="">' +
 			'<input type="hidden" class="app-api-image-url" name="' + base + '[image]" value="">' +
-			'<button type="button" class="button app-api-select-image">' + imageButton + '</button></div>' +
-			'<div class="app-api-item-fields">' + fields + '</div></div></div>';
+			'<button type="button" class="button app-api-select-image">انتخاب تصویر</button></div>' +
+			'<div class="app-api-item-fields">' +
+			'<div class="app-api-field-grid two-columns"><label><span>عنوان</span><input type="text" name="' + base + '[title]" value=""></label>' +
+			'<label><span>زیرعنوان</span><input type="text" name="' + base + '[subtitle]" value=""></label></div>' +
+			'<div class="app-api-field-grid two-columns app-api-action-fields"><label><span>نوع مقصد</span><select name="' + base + '[action_type]" class="app-api-action-type">' + actionOptions() + '</select></label>' +
+			'<label class="app-api-destination-field"><span class="app-api-destination-label">بدون مقصد</span><input type="text" dir="ltr" class="app-api-action-value" name="' + base + '[action_value]" value="" disabled></label></div>' +
+			'</div></div></div>';
+	}
+
+	function syncActionField($select) {
+		var type = String($select.val() || 'none');
+		var $container = $select.closest('.app-api-action-fields');
+		var $label = $container.find('.app-api-destination-label');
+		var $input = $container.find('.app-api-action-value');
+
+		if (type === 'url') {
+			$label.text('لینک مقصد');
+			$input.prop('disabled', false).attr('placeholder', 'https://example.com/...');
+			return;
+		}
+
+		if (['product', 'category', 'brand', 'tag'].indexOf(type) !== -1) {
+			$label.text('شناسه مقصد');
+			$input.prop('disabled', false).attr('placeholder', 'مثلاً 350');
+			return;
+		}
+
+		$label.text('بدون مقصد');
+		$input.val('').prop('disabled', true).attr('placeholder', '');
 	}
 
 	function sectionLabel($card) {
@@ -170,6 +181,10 @@
 		$('.app-api-section-card').each(function () {
 			var $card = $(this);
 			setTypePanelState($card, $card.find('.app-api-section-type-select').first().val() || $card.data('section-type'));
+		});
+
+		$('.app-api-action-type').each(function () {
+			syncActionField($(this));
 		});
 
 		$('.app-api-tab').on('click', function () {
@@ -250,13 +265,19 @@
 
 		$(document).on('click', '.app-api-add-item', function () {
 			var $repeater = $(this).closest('.app-api-repeater');
-			$repeater.find('.app-api-items-sortable').append(newRepeaterItem($repeater.data('section'), $repeater.data('kind')));
+			var $item = $(newRepeaterItem($repeater.data('section')));
+			$repeater.find('.app-api-items-sortable').append($item);
+			syncActionField($item.find('.app-api-action-type'));
 		});
 		$(document).on('click', '.app-api-remove-item', function () {
 			if (window.confirm(appApiAdmin.deleteItem || 'این آیتم حذف شود؟')) {
 				$(this).closest('.app-api-repeater-item').remove();
 			}
 		});
+		$(document).on('change', '.app-api-action-type', function () {
+			syncActionField($(this));
+		});
+
 		$(document).on('input', '.app-api-repeater-item input[name$="[title]"]', function () {
 			$(this).closest('.app-api-repeater-item').find('.app-api-item-topbar strong').text($(this).val() || 'آیتم بدون عنوان');
 		});

@@ -21,6 +21,7 @@ final class Cache {
 			'locale'   => get_locale(),
 			'currency' => function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : '',
 			'version'  => self::home_version(),
+			'plugin'   => defined( 'APP_API_VERSION' ) ? APP_API_VERSION : '',
 		);
 
 		$context = apply_filters( 'app_api_home_cache_context', $context );

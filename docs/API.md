@@ -1,4 +1,4 @@
-# Application API v2.2.2
+# Application API v2.2.3
 
 Base namespace:
 
@@ -14,62 +14,49 @@ Defaults:
 - Product list: `/products`
 - Product detail: `/products/{id}`
 
-For example, changing the Home endpoint from `home` to `main-page` changes its address to:
-
-`/wp-json/app-api/v1/main-page`
-
-Endpoint names accept English letters, numbers, hyphens, and underscores.
-
-## Product list and cards
-
-The product-list API supports:
-
-- `page`, `per_page`
-- `search`
-- `type`
-- `on_sale`
-- `category`, `brand`, `tag`
-- `min_price`, `max_price`
-- `orderby`, `order`
-
-`category`, `brand`, and `tag` keep the same singular key whether they contain one ID or several IDs.
-
-## Product detail
-
-The product-detail endpoint ends with the numeric product ID. Its endpoint base can be configured independently from the product-list endpoint.
-
 ## Home sections
 
-The visual Home builder supports these addable section types:
+The visual Home builder supports these fixed section types:
 
-- `banner`
+- `image`
 - `products`
 - `category`
 - `brand`
 
-The existing quick-access menu uses the fixed `menu` type.
+Legacy `banner` and `menu` sections are migrated to `image` automatically. Section item IDs are not emitted for image items.
 
-A section type is selected when the section is created and cannot be changed afterward. Section `id`, `title`, `subtitle`, `Component`, direction, rows, columns, and type-specific content remain editable.
+Every section layout always contains integer `rows` and `columns`, with a minimum value of `1`.
 
-Every section layout always contains integer `rows` and `columns`. Empty, zero, or invalid values become `1`; values below `1` are not emitted.
+### Image section
 
-### Banner section
-
-Banner items contain only:
+Each image item has a stable shape:
 
 ```json
 {
   "title": "",
   "subtitle": "",
-  "image": "https://example.com/banner.webp"
+  "image": "https://example.com/image.webp",
+  "action": {
+    "type": null,
+    "destination": null
+  }
 }
 ```
 
-Banner items do not emit `id`, `parent`, or `action`.
+Supported action types are:
+
+- `product`
+- `category`
+- `brand`
+- `tag`
+- `url`
+- `null` for no action
+
+For product, category, brand, and tag actions, `destination` is a numeric ID. For URL actions, it is a URL string. When no action is selected, both fields are JSON `null`.
 
 ### Product section
 
-The final `view_all.action` always uses stable singular keys:
+The final `view_all.action` keeps stable singular filter keys:
 
 ```json
 {
@@ -81,8 +68,6 @@ The final `view_all.action` always uses stable singular keys:
 }
 ```
 
-The key names never change to `categories` or `brands`, regardless of the number of IDs.
+### Category and brand sections
 
-### Category section
-
-Category items use their numeric `id` and do not emit an `action` object.
+Category and brand items use their numeric `id`. They do not emit an `action` object.
