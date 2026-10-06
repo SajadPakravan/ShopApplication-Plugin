@@ -75,8 +75,21 @@
 	function newRepeaterItem(sectionKey, kind) {
 		var index = 'new_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
 		var base = optionName + '[sections][' + sectionKey + '][data][' + index + ']';
-		var imageButton = kind === 'menu' ? 'انتخاب آیکون' : 'انتخاب تصویر';
-		var itemTitle = kind === 'menu' ? 'گزینه منو' : 'بنر جدید';
+		var isMenu = kind === 'menu';
+		var imageButton = isMenu ? 'انتخاب آیکون' : 'انتخاب تصویر';
+		var itemTitle = isMenu ? 'گزینه منو' : 'بنر جدید';
+		var fields = '';
+
+		if (isMenu) {
+			fields = '<div class="app-api-field-grid three-columns"><label><span>ID آیتم</span><input type="text" dir="ltr" name="' + base + '[id]" value="" placeholder="اختیاری"></label>' +
+				'<label><span>عنوان</span><input type="text" name="' + base + '[title]" value=""></label>' +
+				'<label><span>زیرعنوان</span><input type="text" name="' + base + '[subtitle]" value=""></label></div>' +
+				'<div class="app-api-field-grid two-columns"><label><span>نوع مقصد</span><select name="' + base + '[action_type]" class="app-api-action-type">' + actionOptions() + '</select></label>' +
+				'<label><span>آیدی یا لینک مقصد</span><input type="text" dir="ltr" name="' + base + '[action_value]" value="" placeholder="مثلاً 350 یا https://..."></label></div>';
+		} else {
+			fields = '<div class="app-api-field-grid two-columns"><label><span>عنوان</span><input type="text" name="' + base + '[title]" value=""></label>' +
+				'<label><span>زیرعنوان</span><input type="text" name="' + base + '[subtitle]" value=""></label></div>';
+		}
 
 		return '<div class="app-api-repeater-item" data-item-index="' + index + '">' +
 			'<div class="app-api-item-topbar"><span class="dashicons dashicons-move app-api-item-drag"></span><strong>' + itemTitle + '</strong><button type="button" class="button-link-delete app-api-remove-item">حذف</button></div>' +
@@ -85,13 +98,7 @@
 			'<input type="hidden" class="app-api-attachment-id" name="' + base + '[attachment_id]" value="">' +
 			'<input type="hidden" class="app-api-image-url" name="' + base + '[image]" value="">' +
 			'<button type="button" class="button app-api-select-image">' + imageButton + '</button></div>' +
-			'<div class="app-api-item-fields">' +
-			'<div class="app-api-field-grid three-columns"><label><span>ID آیتم</span><input type="text" dir="ltr" name="' + base + '[id]" value="" placeholder="اختیاری"></label>' +
-			'<label><span>عنوان</span><input type="text" name="' + base + '[title]" value=""></label>' +
-			'<label><span>زیرعنوان</span><input type="text" name="' + base + '[subtitle]" value=""></label></div>' +
-			'<div class="app-api-field-grid two-columns"><label><span>نوع مقصد</span><select name="' + base + '[action_type]" class="app-api-action-type">' + actionOptions() + '</select></label>' +
-			'<label><span>آیدی یا لینک مقصد</span><input type="text" dir="ltr" name="' + base + '[action_value]" value="" placeholder="مثلاً 350 یا https://..."></label></div>' +
-			'</div></div></div>';
+			'<div class="app-api-item-fields">' + fields + '</div></div></div>';
 	}
 
 	function sectionLabel($card) {
@@ -130,12 +137,13 @@
 	function applyType($card, type, resetLayout) {
 		var defaults = (window.appApiAdmin && appApiAdmin.defaultLayouts && appApiAdmin.defaultLayouts[type]) || {};
 		$card.find('.app-api-section-type-select').val(type);
+		$card.find('.app-api-section-type-display').val(type);
 		setTypePanelState($card, type);
 		if (resetLayout) {
 			$card.find('input[name$="[layout][component]"]').val(defaults.component || type);
 			$card.find('select[name$="[layout][direction]"]').val(defaults.direction || 'horizontal');
-			$card.find('input[name$="[layout][rows]"]').val(defaults.rows || '');
-			$card.find('input[name$="[layout][columns]"]').val(defaults.columns || '');
+			$card.find('input[name$="[layout][rows]"]').val(defaults.rows || 1);
+			$card.find('input[name$="[layout][columns]"]').val(defaults.columns || 1);
 		}
 		syncSectionIdentity($card);
 	}
@@ -221,9 +229,6 @@
 			updateOrderInput();
 		});
 
-		$(document).on('change', '.app-api-section-type-select', function () {
-			applyType($(this).closest('.app-api-section-card'), $(this).val(), true);
-		});
 
 		$(document).on('input', '.app-api-section-title-input, .app-api-section-id-input', function () {
 			syncSectionIdentity($(this).closest('.app-api-section-card'));
@@ -273,6 +278,14 @@
 				$field.find('.app-api-image-preview').addClass('has-image').html('<img src="' + escapeHtml(url) + '" alt="">');
 			});
 			frame.open();
+		});
+
+		$(document).on('input', '.app-api-endpoint-slug', function () {
+			var $input = $(this);
+			var slug = String($input.val() || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^[-_]+|[-_]+$/g, '');
+			var $card = $input.closest('.app-api-endpoint-card');
+			var $url = $card.find('.app-api-endpoint-url');
+			$url.val(String($url.data('endpoint-base') || '') + slug + String($input.data('endpoint-suffix') || ''));
 		});
 
 		$('#app-api-settings-form').on('submit', function () {

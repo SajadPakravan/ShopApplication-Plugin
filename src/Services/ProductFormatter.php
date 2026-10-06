@@ -369,7 +369,7 @@ final class ProductFormatter {
 	}
 
 	/**
-	 * Normalized stock contract for Flutter:
+	 * Normalized stock contract for application:
 	 * - 0 means unavailable/out of stock.
 	 * - actual positive managed quantity is returned when WooCommerce tracks it.
 	 * - 1 means available when WooCommerce does not expose a numeric quantity
@@ -458,7 +458,7 @@ final class ProductFormatter {
 	}
 
 	/**
-	 * Full product description prepared for safe HTML rendering in Flutter.
+	 * Full product description prepared for safe HTML rendering in application.
 	 */
 	private function description( \WC_Product $product ): string {
 		$description = (string) $product->get_description();

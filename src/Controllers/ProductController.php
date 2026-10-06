@@ -143,7 +143,7 @@ final class ProductController {
 
 	/**
 	 * Singular public parameters are canonical. Plural aliases are accepted to
-	 * avoid breaking an already-installed Flutter build during migration.
+	 * avoid breaking an already-installed application build during migration.
 	 */
 	private function canonical_or_legacy_param( \WP_REST_Request $request, string $canonical, string $legacy ) {
 		if ( $request->has_param( $canonical ) ) {

@@ -1,127 +1,88 @@
-# Application API v2.2.1
+# Application API v2.2.2
 
 Base namespace:
 
 `/wp-json/app-api/v1`
 
-## Product list and product cards
+## Configurable endpoint names
 
-`GET /products`
+The endpoint name is configurable from the corresponding WordPress settings tab.
 
-Supported request parameters remain:
+Defaults:
+
+- Home: `/home`
+- Product list: `/products`
+- Product detail: `/products/{id}`
+
+For example, changing the Home endpoint from `home` to `main-page` changes its address to:
+
+`/wp-json/app-api/v1/main-page`
+
+Endpoint names accept English letters, numbers, hyphens, and underscores.
+
+## Product list and cards
+
+The product-list API supports:
 
 - `page`, `per_page`
-- `search`: partial product title, parent SKU, or published variation SKU
-- `type`: one product type slug such as `simple` or `variable`
-- `on_sale`: `true` or `false`
-- `category`, `brand`, `tag`: one ID, comma-separated IDs, or an array
-- `min_price`, `max_price`
-- `orderby`: `price`, `date`, `rating`, `id`, `title`, `popularity`
-- `order`: `asc`, `desc`
-
-`type` and `on_sale` are still accepted as internal query/filter inputs, but they are not repeated in the response JSON.
-
-Every product card now has the compact contract below:
-
-```json
-{
-  "id": 2143,
-  "name": "کیبورد گیمینگ اچ‌پی مدل HP K10G-98L",
-  "price": 4598213,
-  "regular_price": 5000000,
-  "discount_percent": 8,
-  "stock_quantity": 3,
-  "image": "https://example.com/original-product-image.webp",
-  "variation_name": "مشکی"
-}
-```
-
-For a simple product, or when no variation label is available:
-
-```json
-{
-  "variation_name": ""
-}
-```
-
-Product cards no longer include:
-
+- `search`
 - `type`
-- `sku`
 - `on_sale`
-- `average_rating`
-- `rating_count`
-- `review_count`
-- `total_sales`
-- `categories`
-- `brands`
-- `tags`
+- `category`, `brand`, `tag`
+- `min_price`, `max_price`
+- `orderby`, `order`
 
-`discount_percent > 0` is the public indication that the selected product presentation is discounted.
-
-### Monetary contract
-
-All public product monetary fields are JSON integers, never strings:
-
-- `price`
-- `regular_price`
-- the same fields inside `default_variation`
-- the same fields inside every member of `variations`
-
-Missing, empty, or invalid monetary values are returned as `0`, never `null`.
-
-WooCommerce decimal values are retained internally while selecting sale variations and calculating discount percentages. Integer conversion occurs only when creating the public JSON payload, so the existing greatest-discount variation logic is not changed.
-
-### Variable-product card rule
-
-- For a variable product marked on sale, published sale variations are checked and the variation with the greatest exact discount ratio supplies the card values.
-- An exact discount-ratio tie keeps the first variation in WooCommerce order.
-- For a variable product not marked on sale, its configured default variation supplies the card values.
-- If the default is unavailable, the first published variation is used as a defensive fallback.
-
-### Stock contract and ordering
-
-- `stock_quantity` is never `null`.
-- `0` means unavailable.
-- A positive managed quantity is returned when available.
-- `1` means available when WooCommerce has no exact positive numeric quantity.
-- Available products remain before unavailable products across the entire filtered result set and before pagination.
+`category`, `brand`, and `tag` keep the same singular key whether they contain one ID or several IDs.
 
 ## Product detail
 
-`GET /products/{id}`
+The product-detail endpoint ends with the numeric product ID. Its endpoint base can be configured independently from the product-list endpoint.
 
-The detail response does not include the product `type` or `on_sale` fields. It retains the product `sku` and complete detail-only information such as description, gallery, dimensions, shipping class, ratings, sales, taxonomies, attributes, default variation, and all published variations.
+## Home sections
 
-For a variable product, the top-level `price`, `regular_price`, `discount_percent`, `stock_quantity`, `image`, and `variation_name` represent the configured default variation.
+The visual Home builder supports these addable section types:
 
-Each variation contains:
+- `banner`
+- `products`
+- `category`
+- `brand`
+
+The existing quick-access menu uses the fixed `menu` type.
+
+A section type is selected when the section is created and cannot be changed afterward. Section `id`, `title`, `subtitle`, `Component`, direction, rows, columns, and type-specific content remain editable.
+
+Every section layout always contains integer `rows` and `columns`. Empty, zero, or invalid values become `1`; values below `1` are not emitted.
+
+### Banner section
+
+Banner items contain only:
 
 ```json
 {
-  "id": 100,
-  "name": "Product name - Black, 20",
-  "sku": "SKU-100",
-  "price": 4000000,
-  "regular_price": 5000000,
-  "discount_percent": 20,
-  "stock_quantity": 3,
-  "image": "https://example.com/original-image.webp"
+  "title": "",
+  "subtitle": "",
+  "image": "https://example.com/banner.webp"
 }
 ```
 
-`on_sale` is omitted from both `default_variation` and `variations`. A positive `discount_percent` indicates a discounted variation.
+Banner items do not emit `id`, `parent`, or `action`.
 
-## Home
+### Product section
 
-`GET /home`
+The final `view_all.action` always uses stable singular keys:
 
-The endpoint remains configured visually under:
+```json
+{
+  "type": "products",
+  "category": [166, 350],
+  "brand": [313, 362],
+  "orderby": "date",
+  "order": "desc"
+}
+```
 
-`WooCommerce > Application API > Home`
+The key names never change to `categories` or `brands`, regardless of the number of IDs.
 
-Product sections use the same compact product-card formatter as `GET /products`. This keeps home-page lists and future related-product lists consistent and lightweight.
+### Category section
 
-The home builder continues to support dynamic `banner`, `products`, `categories`, and `brands` sections. Section-level `type` is still required because it identifies the kind of home section; it is unrelated to the removed WooCommerce product-type field.
-
-The `on_sale` checkbox in the WordPress settings and the internal WooCommerce query remain functional for building discounted product sections. The `on_sale` value itself is not emitted in product objects, response filters, or the home `view_all` action.
+Category items use their numeric `id` and do not emit an `action` object.

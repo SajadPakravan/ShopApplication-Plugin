@@ -15,7 +15,7 @@ final class Routes {
 
 		register_rest_route(
 			Config::REST_NAMESPACE,
-			'/products',
+			'/' . Config::products_endpoint(),
 			array(
 				'methods'             => \WP_REST_Server::READABLE,
 				'callback'            => array( $product_controller, 'index' ),
@@ -26,7 +26,7 @@ final class Routes {
 
 		register_rest_route(
 			Config::REST_NAMESPACE,
-			'/products/(?P<id>\d+)',
+			'/' . Config::product_endpoint() . '/(?P<id>\d+)',
 			array(
 				'methods'             => \WP_REST_Server::READABLE,
 				'callback'            => array( $product_controller, 'show' ),
@@ -43,7 +43,7 @@ final class Routes {
 
 		register_rest_route(
 			Config::REST_NAMESPACE,
-			'/home',
+			'/' . Config::home_endpoint(),
 			array(
 				'methods'             => \WP_REST_Server::READABLE,
 				'callback'            => array( $home_controller, 'index' ),

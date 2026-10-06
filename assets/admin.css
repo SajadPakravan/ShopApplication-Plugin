@@ -142,3 +142,7 @@
 }
 .app-api-section-card > summary > .app-api-summary-actions { flex:0 0 auto; flex-direction:row; align-items:center; }
 @media (max-width:600px) { .app-api-section-card > summary > .app-api-summary-actions { flex-direction:column; align-items:flex-end; } }
+
+.app-api-endpoint-card { padding:22px; margin-bottom:22px; }
+.app-api-endpoint-card .app-api-card-title { margin-bottom:16px; }
+.app-api-endpoint-form .submit { margin-top:16px; }

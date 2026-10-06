@@ -62,17 +62,9 @@ final class HomeBuilder {
 		$resolved_layout = array(
 			'component' => $this->sanitize_component( (string) ( $layout['component'] ?? $type ), $type ),
 			'direction' => in_array( $layout['direction'] ?? '', array( 'horizontal', 'vertical' ), true ) ? $layout['direction'] : 'horizontal',
+			'rows'      => $this->positive_int( $layout['rows'] ?? 1, 12 ),
+			'columns'   => $this->positive_int( $layout['columns'] ?? 1, 12 ),
 		);
-
-		$rows = $this->nullable_positive_int( $layout['rows'] ?? null, 12 );
-		if ( null !== $rows ) {
-			$resolved_layout['rows'] = $rows;
-		}
-
-		$columns = $this->nullable_positive_int( $layout['columns'] ?? null, 12 );
-		if ( null !== $columns ) {
-			$resolved_layout['columns'] = $columns;
-		}
 
 		$base = array(
 			'id'       => $this->api_id( (string) ( $section['id'] ?? ( $type . '_' . $position ) ), $type . '_' . $position ),
@@ -98,11 +90,11 @@ final class HomeBuilder {
 				$base['view_all']  = $product_result['view_all'];
 				return $base;
 
-			case 'categories':
+			case 'category':
 				$base['data'] = $this->categories( $section );
 				return $base;
 
-			case 'brands':
+			case 'brand':
 				$base['data'] = $this->brands( $section );
 				return $base;
 		}
@@ -123,13 +115,21 @@ final class HomeBuilder {
 				? $this->attachment_image_url( absint( $item['attachment_id'] ) )
 				: $this->original_image_from_url( (string) ( $item['image'] ?? '' ) );
 
-			$result[] = array(
-				'id'       => $this->api_id( (string) ( $item['id'] ?? '' ), $kind . '_' . ( $index + 1 ) ),
+			$formatted = array(
 				'title'    => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
 				'subtitle' => sanitize_text_field( (string) ( $item['subtitle'] ?? '' ) ),
 				'image'    => $image ?: '',
-				'action'   => isset( $item['action'] ) && is_array( $item['action'] ) ? $this->resolve_action( $item['action'] ) : array(),
 			);
+
+			if ( 'menu' === $kind ) {
+				$formatted = array_merge(
+					array( 'id' => $this->api_id( (string) ( $item['id'] ?? '' ), 'menu_' . ( $index + 1 ) ) ),
+					$formatted,
+					array( 'action' => isset( $item['action'] ) && is_array( $item['action'] ) ? $this->resolve_action( $item['action'] ) : array() )
+				);
+			}
+
+			$result[] = $formatted;
 		}
 
 		return 'banner' === $kind ? apply_filters( 'app_api_home_banners', $result, $section ) : $result;
@@ -260,18 +260,23 @@ final class HomeBuilder {
 		return $result;
 	}
 
-	private function format_term( \WP_Term $term, string $action_type ): array {
-		return array(
+	private function format_term( \WP_Term $term, string $term_type ): array {
+		$data = array(
 			'id'     => (int) $term->term_id,
 			'name'   => $term->name,
 			'parent' => (int) $term->parent,
 			'count'  => (int) $term->count,
 			'image'  => $this->term_image_url( $term ),
-			'action' => array(
-				'type' => $action_type,
-				'id'   => (int) $term->term_id,
-			),
 		);
+
+		if ( 'brand' === $term_type ) {
+			$data['action'] = array(
+				'type' => 'brand',
+				'id'   => (int) $term->term_id,
+			);
+		}
+
+		return $data;
 	}
 
 	private function term_image_url( \WP_Term $term ): string {
@@ -469,12 +474,9 @@ final class HomeBuilder {
 		return $id ?: sanitize_key( $fallback );
 	}
 
-	private function nullable_positive_int( $value, int $maximum ) {
-		if ( null === $value || '' === trim( (string) $value ) ) {
-			return null;
-		}
+	private function positive_int( $value, int $maximum ): int {
 		$value = absint( $value );
-		return $value > 0 ? min( $maximum, $value ) : null;
+		return min( $maximum, max( 1, $value ?: 1 ) );
 	}
 
 	private function sanitize_value( $value ) {
