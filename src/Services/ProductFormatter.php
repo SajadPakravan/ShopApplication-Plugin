@@ -49,7 +49,7 @@ final class ProductFormatter {
 			$presentation = $this->simple_presentation( $product );
 		}
 
-		$data                      = $this->card_data( $product, $presentation, $lookup );
+		$data                      = $this->detail_data( $product, $presentation, $lookup );
 		$data['description']       = $this->description( $product );
 		$data['gallery']           = $this->gallery( $product, $presentation );
 		$data['dimensions']        = $this->dimensions( $product );
@@ -64,34 +64,41 @@ final class ProductFormatter {
 	}
 
 	private function card_data( \WC_Product $product, array $presentation, array $lookup ): array {
-		$image_id       = $presentation['image_id'] ?: $product->get_image_id();
-		$image          = $this->image_url( $image_id );
-		$brand_taxonomy = Taxonomy::brand_taxonomy();
+		$image_id = $presentation['image_id'] ?: $product->get_image_id();
 
 		return array(
-			'id'               => $product->get_id(),
-			'type'             => $product->get_type(),
-			'name'             => $product->get_name(),
-			'sku'              => $product->get_sku(),
-			'price'            => $presentation['price'],
-			'regular_price'    => $presentation['regular_price'],
-			'discount_percent' => $presentation['discount_percent'],
-			'on_sale'          => $presentation['on_sale'],
+			'id'               => (int) $product->get_id(),
+			'name'             => (string) $product->get_name(),
+			'price'            => $this->money_int( $presentation['price'] ?? 0 ),
+			'regular_price'    => $this->money_int( $presentation['regular_price'] ?? 0 ),
+			'discount_percent' => (int) ( $presentation['discount_percent'] ?? 0 ),
 			'stock_quantity'   => $this->stock_quantity(
 				$product,
 				$presentation['selected_product'],
 				$lookup
 			),
-			'image'            => $image,
-			'variation_name'   => $presentation['variation_name'],
-			'average_rating'   => (string) $product->get_average_rating(),
-			'rating_count'     => (int) $product->get_rating_count(),
-			'review_count'     => (int) $product->get_review_count(),
-			'total_sales'      => (int) $product->get_total_sales(),
-			'categories'       => Taxonomy::terms( $product->get_id(), 'product_cat' ),
-			'brands'           => $brand_taxonomy ? Taxonomy::terms( $product->get_id(), $brand_taxonomy ) : array(),
-			'tags'             => Taxonomy::terms( $product->get_id(), 'product_tag' ),
+			'image'            => $this->image_url( (int) $image_id ),
+			'variation_name'   => (string) ( $presentation['variation_name'] ?? '' ),
 		);
+	}
+
+	/**
+	 * Complete product payload used only by the detail endpoint. Product-card
+	 * payloads intentionally remain small and do not inherit these fields.
+	 */
+	private function detail_data( \WC_Product $product, array $presentation, array $lookup ): array {
+		$data             = $this->card_data( $product, $presentation, $lookup );
+		$brand_taxonomy   = Taxonomy::brand_taxonomy();
+		$data['sku']      = (string) $product->get_sku();
+		$data['average_rating'] = (string) $product->get_average_rating();
+		$data['rating_count']   = (int) $product->get_rating_count();
+		$data['review_count']   = (int) $product->get_review_count();
+		$data['total_sales']    = (int) $product->get_total_sales();
+		$data['categories']     = Taxonomy::terms( $product->get_id(), 'product_cat' );
+		$data['brands']         = $brand_taxonomy ? Taxonomy::terms( $product->get_id(), $brand_taxonomy ) : array();
+		$data['tags']           = Taxonomy::terms( $product->get_id(), 'product_tag' );
+
+		return $data;
 	}
 
 	private function card_presentation( \WC_Product $product, array $lookup ): array {
@@ -135,7 +142,7 @@ final class ProductFormatter {
 			'discount_percent'     => $on_sale ? $this->discount( $regular, $price ) : 0,
 			'on_sale'              => $on_sale,
 			'selected_product'     => $product,
-			'variation_name'       => null,
+			'variation_name'       => '',
 			'variation_attributes' => array(),
 			'image_id'             => $product->get_image_id(),
 		);
@@ -159,7 +166,7 @@ final class ProductFormatter {
 			'discount_percent'     => 0,
 			'on_sale'              => false,
 			'selected_product'     => $product,
-			'variation_name'       => null,
+			'variation_name'       => '',
 			'variation_attributes' => array(),
 			'image_id'             => $product->get_image_id(),
 		);
@@ -316,10 +323,9 @@ final class ProductFormatter {
 			'id'               => $variation->get_id(),
 			'name'             => $variation->get_name(),
 			'sku'              => $variation->get_sku(),
-			'price'            => $presentation['price'],
-			'regular_price'    => $presentation['regular_price'],
-			'discount_percent' => $presentation['discount_percent'],
-			'on_sale'          => $presentation['on_sale'],
+			'price'            => $this->money_int( $presentation['price'] ?? 0 ),
+			'regular_price'    => $this->money_int( $presentation['regular_price'] ?? 0 ),
+			'discount_percent' => (int) ( $presentation['discount_percent'] ?? 0 ),
 			'stock_quantity'   => $this->stock_quantity( $parent, $variation, array() ),
 			'image'            => $this->image_url( $presentation['image_id'] ),
 		);
@@ -558,6 +564,19 @@ final class ProductFormatter {
 		}
 
 		return $this->decimal_or_null( $lookup[ $key ] );
+	}
+
+	/**
+	 * Monetary values in the public API are always JSON integers. Empty or
+	 * invalid WooCommerce prices become zero rather than null or a string.
+	 * Internal calculations still use WooCommerce's exact decimal values.
+	 */
+	private function money_int( $value ): int {
+		if ( '' === $value || null === $value || ! is_numeric( $value ) ) {
+			return 0;
+		}
+
+		return max( 0, (int) round( (float) $value ) );
 	}
 
 	private function decimal_or_null( $value ): ?string {

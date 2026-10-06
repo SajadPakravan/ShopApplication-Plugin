@@ -67,8 +67,6 @@ final class ProductController {
 			),
 			'filters'    => array(
 				'search'         => $params['search'] ?: null,
-				'type'            => $params['type'],
-				'on_sale'        => $params['on_sale'],
 				'category'       => $params['category'],
 				'brand'          => $params['brand'],
 				'tag'            => $params['tag'],

@@ -190,7 +190,6 @@ final class HomeBuilder {
 					'type'     => 'products',
 					'category' => $category_ids,
 					'brand'    => $brand_ids,
-					'on_sale'  => $on_sale,
 					'orderby'  => 'date',
 					'order'    => 'desc',
 				),
