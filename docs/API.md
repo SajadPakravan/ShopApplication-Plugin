@@ -1,4 +1,4 @@
-# Application API v2.2.3
+# Application API v2.2.4
 
 Base namespace:
 
@@ -23,51 +23,75 @@ The visual Home builder supports these fixed section types:
 - `category`
 - `brand`
 
-Legacy `banner` and `menu` sections are migrated to `image` automatically. Section item IDs are not emitted for image items.
+Every section layout contains integer `rows` and `columns`, with a minimum value of `1`.
 
-Every section layout always contains integer `rows` and `columns`, with a minimum value of `1`.
+## Unified action contract
 
-### Image section
+An `action` object is emitted only for:
 
-Each image item has a stable shape:
+- each item in an `image` section;
+- `view_all` in `products`, `category`, and `brand` sections.
 
-```json
-{
-  "title": "",
-  "subtitle": "",
-  "image": "https://example.com/image.webp",
-  "action": {
-    "type": null,
-    "destination": null
-  }
-}
-```
+It is not repeated inside individual product, category, or brand items.
 
-Supported action types are:
-
-- `product`
-- `category`
-- `brand`
-- `tag`
-- `url`
-- `null` for no action
-
-For product, category, brand, and tag actions, `destination` is a numeric ID. For URL actions, it is a URL string. When no action is selected, both fields are JSON `null`.
-
-### Product section
-
-The final `view_all.action` keeps stable singular filter keys:
+Every action always has the same keys:
 
 ```json
 {
-  "type": "products",
-  "category": [166, 350],
-  "brand": [313, 362],
+  "title": "لپ‌تاپ",
+  "type": "category",
+  "destination_id": 55,
+  "on_sale": false,
+  "url": null,
   "orderby": "date",
   "order": "desc"
 }
 ```
 
-### Category and brand sections
+`title` is derived from the owning image item or the `view_all` title. Supported destination types are `product`, `category`, `brand`, `url`, and JSON `null` for no action.
 
-Category and brand items use their numeric `id`. They do not emit an `action` object.
+- `product`, `category`, and `brand` use a numeric `destination_id` and set `url` to `null`.
+- `url` sets `destination_id` to `null` and stores the sanitized address in `url`.
+- `on_sale` is boolean only for `category` and `brand`; it is `null` for product, URL, or no action.
+- `orderby` accepts `date`, `price`, `popularity`, `rating`, or `cout_sales`.
+- `order` accepts `desc` or `asc`.
+
+### Image item example
+
+```json
+{
+  "title": "لپ‌تاپ",
+  "subtitle": "",
+  "image": "https://example.com/image.webp",
+  "action": {
+    "title": "لپ‌تاپ",
+    "type": "category",
+    "destination_id": 55,
+    "on_sale": true,
+    "url": null,
+    "orderby": "date",
+    "order": "desc"
+  }
+}
+```
+
+### View-all example
+
+```json
+{
+  "view_all": {
+    "title": "مشاهده همه",
+    "action": {
+      "title": "مشاهده همه",
+      "type": "brand",
+      "destination_id": 362,
+      "on_sale": false,
+      "url": null,
+      "orderby": "popularity",
+      "order": "desc"
+    }
+  }
+}
+```
+
+Category and brand list items themselves continue to use their numeric `id` and do not emit an `action` object.

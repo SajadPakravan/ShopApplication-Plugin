@@ -144,6 +144,7 @@ final class ProductRepository {
 				$primary = "{$lookup_alias}.average_rating {$order}";
 				break;
 			case 'popularity':
+			case 'cout_sales':
 				$primary = "{$lookup_alias}.total_sales {$order}";
 				break;
 			case 'id':

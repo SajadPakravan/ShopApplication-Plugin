@@ -63,8 +63,20 @@
 			product: 'محصول',
 			category: 'دسته‌بندی',
 			brand: 'برند',
-			tag: 'برچسب',
 			url: 'لینک'
+		};
+		return Object.keys(options).map(function (key) {
+			return '<option value="' + key + '">' + options[key] + '</option>';
+		}).join('');
+	}
+
+	function actionOrderbyOptions() {
+		var options = {
+			date: 'تاریخ (date)',
+			price: 'قیمت (price)',
+			popularity: 'محبوبیت (popularity)',
+			rating: 'امتیاز (rating)',
+			cout_sales: 'تعداد فروش (cout_sales)'
 		};
 		return Object.keys(options).map(function (key) {
 			return '<option value="' + key + '">' + options[key] + '</option>';
@@ -74,6 +86,7 @@
 	function newRepeaterItem(sectionKey) {
 		var index = 'new_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
 		var base = optionName + '[sections][' + sectionKey + '][data][' + index + ']';
+		var actionBase = base + '[action]';
 
 		return '<div class="app-api-repeater-item" data-item-index="' + index + '">' +
 			'<div class="app-api-item-topbar"><span class="dashicons dashicons-move app-api-item-drag"></span><strong>تصویر جدید</strong><button type="button" class="button-link-delete app-api-remove-item">حذف</button></div>' +
@@ -83,33 +96,48 @@
 			'<input type="hidden" class="app-api-image-url" name="' + base + '[image]" value="">' +
 			'<button type="button" class="button app-api-select-image">انتخاب تصویر</button></div>' +
 			'<div class="app-api-item-fields">' +
-			'<div class="app-api-field-grid two-columns"><label><span>عنوان</span><input type="text" name="' + base + '[title]" value=""></label>' +
+			'<div class="app-api-field-grid two-columns"><label><span>عنوان</span><input type="text" class="app-api-image-item-title" name="' + base + '[title]" value=""></label>' +
 			'<label><span>زیرعنوان</span><input type="text" name="' + base + '[subtitle]" value=""></label></div>' +
-			'<div class="app-api-field-grid two-columns app-api-action-fields"><label><span>نوع مقصد</span><select name="' + base + '[action_type]" class="app-api-action-type">' + actionOptions() + '</select></label>' +
-			'<label class="app-api-destination-field"><span class="app-api-destination-label">بدون مقصد</span><input type="text" dir="ltr" class="app-api-action-value" name="' + base + '[action_value]" value="" disabled></label></div>' +
-			'</div></div></div>';
+			'<div class="app-api-action-editor app-api-action-fields">' +
+			'<p class="app-api-action-title-note">پارامتر <code>action.title</code> به‌صورت خودکار از عنوان همین آیتم گرفته می‌شود.</p>' +
+			'<div class="app-api-field-grid four-columns">' +
+			'<label><span>نوع مقصد</span><select name="' + actionBase + '[type]" class="app-api-action-type">' + actionOptions() + '</select></label>' +
+			'<label class="app-api-destination-field"><span class="app-api-destination-label">بدون مقصد</span><input type="text" dir="ltr" class="app-api-action-destination" name="' + actionBase + '[destination]" value="" disabled></label>' +
+			'<label><span>مرتب‌سازی</span><select name="' + actionBase + '[orderby]" class="app-api-action-orderby">' + actionOrderbyOptions() + '</select></label>' +
+			'<label><span>ترتیب</span><select name="' + actionBase + '[order]"><option value="desc">نزولی (desc)</option><option value="asc">صعودی (asc)</option></select></label>' +
+			'</div>' +
+			'<label class="app-api-check app-api-action-sale-field" hidden><input type="checkbox" name="' + actionBase + '[on_sale]" value="1" disabled> فقط محصولات تخفیف‌دار نمایش داده شوند</label>' +
+			'</div></div></div></div>';
 	}
 
 	function syncActionField($select) {
 		var type = String($select.val() || 'none');
 		var $container = $select.closest('.app-api-action-fields');
-		var $label = $container.find('.app-api-destination-label');
-		var $input = $container.find('.app-api-action-value');
+		var $label = $container.find('.app-api-destination-label').first();
+		var $input = $container.find('.app-api-action-destination').first();
+		var $saleField = $container.find('.app-api-action-sale-field').first();
+		var $saleInput = $saleField.find('input[type="checkbox"]').first();
+		var identifierType = ['product', 'category', 'brand'].indexOf(type) !== -1;
+		var saleType = ['category', 'brand'].indexOf(type) !== -1;
 
 		if (type === 'url') {
 			$label.text('لینک مقصد');
-			$input.prop('disabled', false).attr('placeholder', 'https://example.com/...');
-			return;
-		}
-
-		if (['product', 'category', 'brand', 'tag'].indexOf(type) !== -1) {
+			$input.prop('disabled', false).attr({ placeholder: 'https://example.com/...', inputmode: 'url' });
+		} else if (identifierType) {
 			$label.text('شناسه مقصد');
-			$input.prop('disabled', false).attr('placeholder', 'مثلاً 350');
-			return;
+			$input.prop('disabled', false).attr({ placeholder: 'مثلاً 350', inputmode: 'numeric' });
+		} else {
+			$label.text('بدون مقصد');
+			$input.val('').prop('disabled', true).attr({ placeholder: '', inputmode: 'text' });
 		}
 
-		$label.text('بدون مقصد');
-		$input.val('').prop('disabled', true).attr('placeholder', '');
+		if (saleType) {
+			$saleField.prop('hidden', false);
+			$saleInput.prop('disabled', false);
+		} else {
+			$saleInput.prop('checked', false).prop('disabled', true);
+			$saleField.prop('hidden', true);
+		}
 	}
 
 	function sectionLabel($card) {
@@ -278,8 +306,11 @@
 			syncActionField($(this));
 		});
 
-		$(document).on('input', '.app-api-repeater-item input[name$="[title]"]', function () {
-			$(this).closest('.app-api-repeater-item').find('.app-api-item-topbar strong').text($(this).val() || 'آیتم بدون عنوان');
+		$(document).on('input', '.app-api-image-item-title', function () {
+			var title = $(this).val() || 'آیتم بدون عنوان';
+			var $item = $(this).closest('.app-api-repeater-item');
+			$item.find('.app-api-item-topbar strong').text(title);
+			$item.find('.app-api-action-fields').attr('data-action-title', $(this).val() || '');
 		});
 
 		$(document).on('click', '.app-api-select-image', function (event) {

@@ -87,11 +87,13 @@ final class HomeBuilder {
 				return $base;
 
 			case 'category':
-				$base['data'] = $this->categories( $section );
+				$base['data']     = $this->categories( $section );
+				$base['view_all'] = $this->view_all( $section );
 				return $base;
 
 			case 'brand':
-				$base['data'] = $this->brands( $section );
+				$base['data']     = $this->brands( $section );
+				$base['view_all'] = $this->view_all( $section );
 				return $base;
 		}
 
@@ -111,12 +113,14 @@ final class HomeBuilder {
 				? $this->attachment_image_url( absint( $item['attachment_id'] ) )
 				: $this->original_image_from_url( (string) ( $item['image'] ?? '' ) );
 
+			$title = sanitize_text_field( (string) ( $item['title'] ?? '' ) );
 			$result[] = array(
-				'title'    => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
+				'title'    => $title,
 				'subtitle' => sanitize_text_field( (string) ( $item['subtitle'] ?? '' ) ),
 				'image'    => $image ?: '',
 				'action'   => $this->resolve_action(
-					isset( $item['action'] ) && is_array( $item['action'] ) ? $item['action'] : array()
+					isset( $item['action'] ) && is_array( $item['action'] ) ? $item['action'] : array(),
+					$title
 				),
 			);
 		}
@@ -173,16 +177,7 @@ final class HomeBuilder {
 
 		return array(
 			'data'     => $data,
-			'view_all' => array(
-				'title'  => sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه',
-				'action' => array(
-					'type'     => 'products',
-					'category' => $category_ids,
-					'brand'    => $brand_ids,
-					'orderby'  => 'date',
-					'order'    => 'desc',
-				),
-			),
+			'view_all' => $this->view_all( $section ),
 		);
 	}
 
@@ -355,32 +350,20 @@ final class HomeBuilder {
 		return $url ? esc_url_raw( $url ) : '';
 	}
 
-	private function resolve_action( array $action ): array {
-		$type = sanitize_key( (string) ( $action['type'] ?? '' ) );
-		if ( ! in_array( $type, array( 'product', 'category', 'brand', 'tag', 'url' ), true ) ) {
-			return array(
-				'type'        => null,
-				'destination' => null,
-			);
-		}
-
-		$destination = $action['destination'] ?? null;
-		if ( null === $destination ) {
-			$destination = $action['id'] ?? ( $action['url'] ?? ( $action['name'] ?? null ) );
-		}
-
-		if ( 'url' === $type ) {
-			$destination = esc_url_raw( (string) $destination );
-			$destination = '' !== $destination ? $destination : null;
-		} else {
-			$destination = absint( $destination );
-			$destination = $destination > 0 ? $destination : null;
-		}
+	private function view_all( array $section ): array {
+		$title  = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
+		$action = isset( $section['view_all_action'] ) && is_array( $section['view_all_action'] )
+			? $section['view_all_action']
+			: array();
 
 		return array(
-			'type'        => $type,
-			'destination' => $destination,
+			'title'  => $title,
+			'action' => $this->resolve_action( $action, $title ),
 		);
+	}
+
+	private function resolve_action( array $action, string $title ): array {
+		return Config::normalize_action( $action, $title );
 	}
 
 	private function resolve_term_ids( string $taxonomy, $names, $slugs ): array {

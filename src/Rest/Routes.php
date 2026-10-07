@@ -100,7 +100,7 @@ final class Routes {
 			'orderby' => array(
 				'default' => 'date',
 				'type'    => 'string',
-				'enum'    => array( 'price', 'date', 'rating', 'id', 'title', 'popularity' ),
+				'enum'    => array( 'price', 'date', 'rating', 'id', 'title', 'popularity', 'cout_sales', 'count_sales' ),
 			),
 			'order' => array(
 				'default' => 'desc',

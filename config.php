@@ -80,6 +80,93 @@ final class Config {
 		}
 	}
 
+
+	/**
+	 * Destination types supported by every public action object.
+	 */
+	public static function allowed_action_types(): array {
+		return array( 'product', 'category', 'brand', 'url' );
+	}
+
+	/**
+	 * Stable values accepted by action.orderby.
+	 */
+	public static function allowed_action_orderby(): array {
+		return array( 'date', 'price', 'popularity', 'rating', 'cout_sales' );
+	}
+
+	public static function default_action( string $title = '' ): array {
+		return array(
+			'title'          => sanitize_text_field( $title ),
+			'type'           => null,
+			'destination_id' => null,
+			'on_sale'        => null,
+			'url'            => null,
+			'orderby'        => 'date',
+			'order'          => 'desc',
+		);
+	}
+
+	/**
+	 * Normalizes current and legacy action data to one stable JSON contract.
+	 * The title is deliberately supplied by the owning item/view-all block and
+	 * cannot drift away from the visible title.
+	 */
+	public static function normalize_action( $action, string $title = '' ): array {
+		$action = is_array( $action ) ? $action : array();
+		$type   = sanitize_key( (string) ( $action['type'] ?? $action['action_type'] ?? '' ) );
+		if ( 'none' === $type || ! in_array( $type, self::allowed_action_types(), true ) ) {
+			$type = '';
+		}
+
+		$legacy_destination = $action['destination_id']
+			?? $action['action_destination']
+			?? $action['action_value']
+			?? $action['destination']
+			?? $action['id']
+			?? $action['name']
+			?? null;
+
+		$destination_id = null;
+		$url            = null;
+		$on_sale        = null;
+
+		if ( 'url' === $type ) {
+			$legacy_url = $action['url'] ?? $legacy_destination;
+			$url        = esc_url_raw( (string) $legacy_url );
+			$url        = '' !== $url ? $url : null;
+		} elseif ( in_array( $type, array( 'product', 'category', 'brand' ), true ) ) {
+			$destination_id = absint( $legacy_destination );
+			$destination_id = $destination_id > 0 ? $destination_id : null;
+			if ( in_array( $type, array( 'category', 'brand' ), true ) ) {
+				$on_sale = ! empty( $action['on_sale'] ) || ! empty( $action['action_on_sale'] );
+			}
+		}
+
+		$orderby = sanitize_key( (string) ( $action['orderby'] ?? $action['action_orderby'] ?? 'date' ) );
+		if ( in_array( $orderby, array( 'count_sales', 'total_sales' ), true ) ) {
+			$orderby = 'cout_sales';
+		}
+		if ( ! in_array( $orderby, self::allowed_action_orderby(), true ) ) {
+			$orderby = 'date';
+		}
+
+		$order = strtolower( sanitize_key( (string) ( $action['order'] ?? $action['action_order'] ?? 'desc' ) ) );
+		if ( ! in_array( $order, array( 'asc', 'desc' ), true ) ) {
+			$order = 'desc';
+		}
+
+		return array(
+			'title'          => sanitize_text_field( $title ),
+			'type'           => $type ?: null,
+			'destination_id' => $destination_id,
+			'on_sale'        => $on_sale,
+			'url'            => $url,
+			'orderby'        => $orderby,
+			'order'          => $order,
+		);
+	}
+
 	public static function home_configuration(): array {
 		$saved = get_option( self::OPTION_HOME_CONFIG, null );
 
@@ -113,13 +200,16 @@ final class Config {
 		if ( 'image' === $type ) {
 			$section['data'] = array();
 		} elseif ( 'products' === $type ) {
-			$section['category']      = array();
-			$section['brand']         = array();
-			$section['on_sale']       = false;
-			$section['per_page']      = 10;
-			$section['view_all_title'] = 'مشاهده همه';
+			$section['category']        = array();
+			$section['brand']           = array();
+			$section['on_sale']         = false;
+			$section['per_page']        = 10;
+			$section['view_all_title']  = 'مشاهده همه';
+			$section['view_all_action'] = self::default_action( 'مشاهده همه' );
 		} elseif ( 'category' === $type || 'brand' === $type ) {
-			$section['include'] = array();
+			$section['include']         = array();
+			$section['view_all_title']  = 'مشاهده همه';
+			$section['view_all_action'] = self::default_action( 'مشاهده همه' );
 		}
 
 		return $section;
@@ -212,6 +302,8 @@ final class Config {
 				$clean['view_all_title'] = sanitize_text_field(
 					(string) ( $section['view_all_title'] ?? ( $section['view_all']['title'] ?? 'مشاهده همه' ) )
 				) ?: 'مشاهده همه';
+				$view_all_action = $section['view_all_action'] ?? ( $section['view_all']['action'] ?? array() );
+				$clean['view_all_action'] = self::normalize_action( $view_all_action, $clean['view_all_title'] );
 
 				// Keep old name/slug fallbacks until the administrator saves exact IDs.
 				$clean['category_names'] = isset( $section['category_names'] ) && is_array( $section['category_names'] ) ? array_values( $section['category_names'] ) : array();
@@ -225,6 +317,11 @@ final class Config {
 				$clean['include'] = self::ids( $section['include'] ?? ( $config['include'] ?? array() ) );
 				$clean['include_names'] = isset( $config['include_names'] ) && is_array( $config['include_names'] ) ? array_values( $config['include_names'] ) : array();
 				$clean['include_slugs'] = isset( $config['include_slugs'] ) && is_array( $config['include_slugs'] ) ? array_values( $config['include_slugs'] ) : array();
+				$clean['view_all_title'] = sanitize_text_field(
+					(string) ( $section['view_all_title'] ?? ( $section['view_all']['title'] ?? 'مشاهده همه' ) )
+				) ?: 'مشاهده همه';
+				$view_all_action = $section['view_all_action'] ?? ( $section['view_all']['action'] ?? array() );
+				$clean['view_all_action'] = self::normalize_action( $view_all_action, $clean['view_all_title'] );
 			}
 
 			$sections[ $key ] = $clean;
@@ -257,36 +354,22 @@ final class Config {
 				continue;
 			}
 
-			$action      = isset( $item['action'] ) && is_array( $item['action'] ) ? $item['action'] : array();
-			$action_type = sanitize_key( (string) ( $item['action_type'] ?? ( $action['type'] ?? '' ) ) );
-			if ( ! in_array( $action_type, array( 'product', 'category', 'brand', 'tag', 'url' ), true ) ) {
-				$action_type = '';
-			}
+			$title  = sanitize_text_field( (string) ( $item['title'] ?? '' ) );
+			$action = isset( $item['action'] ) && is_array( $item['action'] ) ? $item['action'] : array();
 
-			$destination = $item['action_value'] ?? ( $action['destination'] ?? null );
-			if ( null === $destination ) {
-				$destination = $action['id'] ?? ( $action['url'] ?? ( $action['name'] ?? null ) );
-			}
-
-			if ( 'url' === $action_type ) {
-				$destination = esc_url_raw( (string) $destination );
-				$destination = '' !== $destination ? $destination : null;
-			} elseif ( $action_type ) {
-				$destination = absint( $destination );
-				$destination = $destination > 0 ? $destination : null;
-			} else {
-				$destination = null;
+			// Accept fields submitted by the visual editor and older plugin versions.
+			foreach ( array( 'action_type', 'action_destination', 'action_value', 'action_on_sale', 'action_orderby', 'action_order' ) as $field ) {
+				if ( array_key_exists( $field, $item ) ) {
+					$action[ $field ] = $item[ $field ];
+				}
 			}
 
 			$result[] = array(
-				'title'         => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
+				'title'         => $title,
 				'subtitle'      => sanitize_text_field( (string) ( $item['subtitle'] ?? '' ) ),
 				'attachment_id' => absint( $item['attachment_id'] ?? 0 ),
 				'image'         => esc_url_raw( (string) ( $item['image'] ?? '' ) ),
-				'action'        => array(
-					'type'        => $action_type ?: null,
-					'destination' => $destination,
-				),
+				'action'        => self::normalize_action( $action, $title ),
 			);
 		}
 

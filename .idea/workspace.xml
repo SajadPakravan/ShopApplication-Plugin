@@ -1,26 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="10fedbbb-3d05-4501-b2a3-705dd55ee990" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assets/admin.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/assets/admin.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/API.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/REPORT-fa.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Admin/SettingsPage.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Controllers/HomeController.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Controllers/ProductController.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Plugin.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Rest/Routes.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Services/HomeBuilder.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Services/ProductFormatter.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Services/ProductRepository.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Support/Cache.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Support/Request.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Support/Response.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Support/Taxonomy.php" beforeDir="false" />
-    </list>
+    <list default="true" id="10fedbbb-3d05-4501-b2a3-705dd55ee990" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -77,6 +58,7 @@
       <workItem from="1790870566586" duration="712000" />
       <workItem from="1791052743907" duration="438000" />
       <workItem from="1791113368162" duration="2880000" />
+      <workItem from="1791320155057" duration="164000" />
     </task>
     <servers />
   </component>

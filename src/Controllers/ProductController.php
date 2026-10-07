@@ -109,7 +109,10 @@ final class ProductController {
 		$orderby = sanitize_key( (string) ( $request->get_param( 'orderby' ) ?: 'date' ) );
 		$order   = strtolower( sanitize_key( (string) ( $request->get_param( 'order' ) ?: 'desc' ) ) );
 
-		$allowed_orderby = array( 'price', 'date', 'rating', 'id', 'title', 'popularity' );
+		$allowed_orderby = array( 'price', 'date', 'rating', 'id', 'title', 'popularity', 'cout_sales', 'count_sales' );
+		if ( 'count_sales' === $orderby ) {
+			$orderby = 'cout_sales';
+		}
 		if ( ! in_array( $orderby, $allowed_orderby, true ) ) {
 			$orderby = 'date';
 		}
