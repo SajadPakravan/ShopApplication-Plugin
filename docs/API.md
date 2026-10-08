@@ -1,4 +1,4 @@
-# Application API v2.2.4
+# Application API v2.2.5
 
 Base namespace:
 
@@ -23,7 +23,17 @@ The visual Home builder supports these fixed section types:
 - `category`
 - `brand`
 
-Every section layout contains integer `rows` and `columns`, with a minimum value of `1`.
+Each section exposes a compact `layout` object containing only:
+
+```json
+{
+  "direction": "horizontal",
+  "rows": 1,
+  "columns": 1
+}
+```
+
+`rows` and `columns` are always integers with a minimum value of `1`. The former `component` field is no longer stored or emitted.
 
 ## Unified action contract
 
@@ -48,50 +58,10 @@ Every action always has the same keys:
 }
 ```
 
-`title` is derived from the owning image item or the `view_all` title. Supported destination types are `product`, `category`, `brand`, `url`, and JSON `null` for no action.
+Supported destination types are `product`, `category`, `brand`, `url`, and JSON `null` for no action.
 
 - `product`, `category`, and `brand` use a numeric `destination_id` and set `url` to `null`.
 - `url` sets `destination_id` to `null` and stores the sanitized address in `url`.
 - `on_sale` is boolean only for `category` and `brand`; it is `null` for product, URL, or no action.
 - `orderby` accepts `date`, `price`, `popularity`, `rating`, or `cout_sales`.
 - `order` accepts `desc` or `asc`.
-
-### Image item example
-
-```json
-{
-  "title": "لپ‌تاپ",
-  "subtitle": "",
-  "image": "https://example.com/image.webp",
-  "action": {
-    "title": "لپ‌تاپ",
-    "type": "category",
-    "destination_id": 55,
-    "on_sale": true,
-    "url": null,
-    "orderby": "date",
-    "order": "desc"
-  }
-}
-```
-
-### View-all example
-
-```json
-{
-  "view_all": {
-    "title": "مشاهده همه",
-    "action": {
-      "title": "مشاهده همه",
-      "type": "brand",
-      "destination_id": 362,
-      "on_sale": false,
-      "url": null,
-      "orderby": "popularity",
-      "order": "desc"
-    }
-  }
-}
-```
-
-Category and brand list items themselves continue to use their numeric `id` and do not emit an `action` object.

@@ -72,11 +72,11 @@
 
 	function actionOrderbyOptions() {
 		var options = {
-			date: 'تاریخ (date)',
-			price: 'قیمت (price)',
-			popularity: 'محبوبیت (popularity)',
-			rating: 'امتیاز (rating)',
-			cout_sales: 'تعداد فروش (cout_sales)'
+			date: 'تاریخ',
+			price: 'قیمت',
+			popularity: 'محبوبیت',
+			rating: 'امتیاز',
+			cout_sales: 'تعداد فروش'
 		};
 		return Object.keys(options).map(function (key) {
 			return '<option value="' + key + '">' + options[key] + '</option>';
@@ -99,12 +99,11 @@
 			'<div class="app-api-field-grid two-columns"><label><span>عنوان</span><input type="text" class="app-api-image-item-title" name="' + base + '[title]" value=""></label>' +
 			'<label><span>زیرعنوان</span><input type="text" name="' + base + '[subtitle]" value=""></label></div>' +
 			'<div class="app-api-action-editor app-api-action-fields">' +
-			'<p class="app-api-action-title-note">پارامتر <code>action.title</code> به‌صورت خودکار از عنوان همین آیتم گرفته می‌شود.</p>' +
 			'<div class="app-api-field-grid four-columns">' +
 			'<label><span>نوع مقصد</span><select name="' + actionBase + '[type]" class="app-api-action-type">' + actionOptions() + '</select></label>' +
 			'<label class="app-api-destination-field"><span class="app-api-destination-label">بدون مقصد</span><input type="text" dir="ltr" class="app-api-action-destination" name="' + actionBase + '[destination]" value="" disabled></label>' +
 			'<label><span>مرتب‌سازی</span><select name="' + actionBase + '[orderby]" class="app-api-action-orderby">' + actionOrderbyOptions() + '</select></label>' +
-			'<label><span>ترتیب</span><select name="' + actionBase + '[order]"><option value="desc">نزولی (desc)</option><option value="asc">صعودی (asc)</option></select></label>' +
+			'<label><span>ترتیب</span><select name="' + actionBase + '[order]"><option value="desc">نزولی</option><option value="asc">صعودی</option></select></label>' +
 			'</div>' +
 			'<label class="app-api-check app-api-action-sale-field" hidden><input type="checkbox" name="' + actionBase + '[on_sale]" value="1" disabled> فقط محصولات تخفیف‌دار نمایش داده شوند</label>' +
 			'</div></div></div></div>';
@@ -179,7 +178,6 @@
 		$card.find('.app-api-section-type-display').val(type);
 		setTypePanelState($card, type);
 		if (resetLayout) {
-			$card.find('input[name$="[layout][component]"]').val(defaults.component || type);
 			$card.find('select[name$="[layout][direction]"]').val(defaults.direction || 'horizontal');
 			$card.find('input[name$="[layout][rows]"]').val(defaults.rows || 1);
 			$card.find('input[name$="[layout][columns]"]').val(defaults.columns || 1);
@@ -198,13 +196,68 @@
 		$card.find('.app-api-section-title-input').val('');
 		$card.find('input[name$="[subtitle]"]').first().val('');
 		$card.find('.app-api-status').first().text('فعال');
-		$card.removeClass('is-disabled').attr('open', true);
+		$card.removeClass('is-disabled').prop('open', false);
 		syncSectionIdentity($card);
 		return { card: $card, id: id };
 	}
 
+	function accordionBody($details) {
+		return $details.children('.app-api-accordion-body').first();
+	}
+
+	function closeAccordion($details, immediate) {
+		if (!$details.length || !$details.prop('open')) {
+			return;
+		}
+		var $body = accordionBody($details);
+		if (!$body.length || immediate) {
+			$details.prop('open', false);
+			return;
+		}
+		$body.stop(true, true).css({ overflow: 'hidden', height: $body.outerHeight(), opacity: 1 });
+		$body.animate({ height: 0, opacity: 0 }, 220, function () {
+			$details.prop('open', false);
+			$body.css({ overflow: '', height: '', opacity: '' });
+		});
+	}
+
+	function openAccordion($details) {
+		if (!$details.length || $details.prop('open')) {
+			return;
+		}
+		$('.app-api-tab-panel.is-active details.app-api-accordion[open]').not($details).each(function () {
+			closeAccordion($(this), false);
+		});
+		$details.prop('open', true);
+		var $body = accordionBody($details);
+		if (!$body.length) {
+			return;
+		}
+		var targetHeight = $body.get(0).scrollHeight;
+		$body.stop(true, true).css({ overflow: 'hidden', height: 0, opacity: 0 });
+		$body.animate({ height: targetHeight, opacity: 1 }, 240, function () {
+			$body.css({ overflow: '', height: '', opacity: '' });
+		});
+	}
+
+	function toggleAccordion($details) {
+		if ($details.prop('open')) {
+			closeAccordion($details, false);
+		} else {
+			openAccordion($details);
+		}
+	}
+
 	$(function () {
 		initSortables();
+
+		$(document).on('click', 'details.app-api-accordion > summary', function (event) {
+			if ($(event.target).closest('button, a, input, select, textarea, label').length) {
+				return;
+			}
+			event.preventDefault();
+			toggleAccordion($(this).parent());
+		});
 
 		$('.app-api-section-card').each(function () {
 			var $card = $(this);
@@ -231,6 +284,7 @@
 			$('#app-api-section-toggles').append(toggleItem(key, built.id, type));
 			$('#app-api-active-sections').append(orderItem(key, built.id, type));
 			$('#app-api-section-cards').append(built.card);
+			openAccordion(built.card);
 			built.card.find('.app-api-items-sortable').sortable({
 				handle: '.app-api-item-drag',
 				placeholder: 'app-api-repeater-item ui-sortable-placeholder'

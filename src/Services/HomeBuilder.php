@@ -60,7 +60,6 @@ final class HomeBuilder {
 			: Config::default_layout_for_type( $type );
 
 		$resolved_layout = array(
-			'component' => $this->sanitize_component( (string) ( $layout['component'] ?? $type ), $type ),
 			'direction' => in_array( $layout['direction'] ?? '', array( 'horizontal', 'vertical' ), true ) ? $layout['direction'] : 'horizontal',
 			'rows'      => $this->positive_int( $layout['rows'] ?? 1, 12 ),
 			'columns'   => $this->positive_int( $layout['columns'] ?? 1, 12 ),
@@ -410,12 +409,6 @@ final class HomeBuilder {
 	}
 
 
-	private function sanitize_component( string $component, string $fallback ): string {
-		$component = trim( $component );
-		$component = preg_replace( '/[^A-Za-z0-9_-]+/', '_', $component );
-		$component = trim( (string) $component, '_-' );
-		return $component ?: $fallback;
-	}
 
 	private function api_id( string $id, string $fallback ): string {
 		$id = strtolower( trim( $id ) );

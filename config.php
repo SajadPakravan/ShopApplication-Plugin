@@ -41,43 +41,12 @@ final class Config {
 	}
 
 	public static function default_layout_for_type( string $type ): array {
-		switch ( sanitize_key( $type ) ) {
-			case 'image':
-				return array(
-					'component' => 'image',
-					'direction' => 'horizontal',
-					'rows'      => 1,
-					'columns'   => 1,
-				);
-			case 'products':
-				return array(
-					'component' => 'product_carousel',
-					'direction' => 'horizontal',
-					'rows'      => 1,
-					'columns'   => 1,
-				);
-			case 'category':
-				return array(
-					'component' => 'category_grid',
-					'direction' => 'horizontal',
-					'rows'      => 1,
-					'columns'   => 1,
-				);
-			case 'brand':
-				return array(
-					'component' => 'brand_grid',
-					'direction' => 'horizontal',
-					'rows'      => 1,
-					'columns'   => 1,
-				);
-			default:
-				return array(
-					'component' => $type ?: 'custom',
-					'direction' => 'vertical',
-					'rows'      => 1,
-					'columns'   => 1,
-				);
-		}
+		$type = sanitize_key( $type );
+		return array(
+			'direction' => 'horizontal',
+			'rows'      => 1,
+			'columns'   => 1,
+		);
 	}
 
 
@@ -276,7 +245,6 @@ final class Config {
 				'title'    => isset( $section['title'] ) ? (string) $section['title'] : '',
 				'subtitle' => isset( $section['subtitle'] ) ? (string) $section['subtitle'] : '',
 				'layout'   => array(
-					'component' => self::sanitize_component( (string) ( $layout['component'] ?? $type ), $type ),
 					'direction' => in_array( $layout['direction'] ?? '', array( 'horizontal', 'vertical' ), true ) ? $layout['direction'] : 'horizontal',
 					'rows'      => $rows,
 					'columns'   => $columns,
@@ -391,12 +359,6 @@ final class Config {
 	}
 
 
-	private static function sanitize_component( string $component, string $fallback ): string {
-		$component = trim( $component );
-		$component = preg_replace( '/[^A-Za-z0-9_-]+/', '_', $component );
-		$component = trim( (string) $component, '_-' );
-		return $component ?: $fallback;
-	}
 
 	private static function sanitize_api_id( string $id, string $fallback ): string {
 		$id = strtolower( trim( $id ) );
@@ -453,7 +415,7 @@ final class Config {
 				'enabled'  => true,
 				'title'    => '',
 				'subtitle' => '',
-				'layout'   => array( 'component' => 'banner_slider', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
 				'data'     => array(),
 			),
 			array(
@@ -462,7 +424,7 @@ final class Config {
 				'enabled'  => true,
 				'title'    => 'جدیدترین محصولات',
 				'subtitle' => '',
-				'layout'   => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
 				'category' => array(),
 				'brand'    => array(),
 				'on_sale'  => false,
@@ -482,7 +444,7 @@ final class Config {
 				'enabled'  => true,
 				'title'    => '',
 				'subtitle' => '',
-				'layout'   => array( 'component' => 'banner_slider', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
 				'data'     => array(
 					array( 'title' => '', 'subtitle' => '', 'image' => $uploads . '2026/06/YademanSystem_banner_Laptop.webp' ),
 					array( 'title' => '', 'subtitle' => '', 'image' => $uploads . '2026/06/YademanSystem_banner_Speaker.webp' ),
@@ -494,7 +456,7 @@ final class Config {
 				'enabled'  => true,
 				'title'    => '',
 				'subtitle' => '',
-				'layout'   => array( 'component' => 'action_menu', 'direction' => 'horizontal', 'rows' => 2, 'columns' => 5 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 2, 'columns' => 5 ),
 				'data'     => array(
 					array( 'title' => 'اپلیکیشن فروشگاه', 'subtitle' => '', 'image' => $uploads . '2023/02/33f94db0e93a29b08b5c45d7932dbb114791155d_1658329987.png', 'action' => array( 'type' => null, 'destination' => null ) ),
 					array( 'title' => 'حراجی', 'subtitle' => '', 'image' => $uploads . '2023/02/258db5bf0ff7b28dbae1bfb3dfaa71bfff32faf9_1654679397.png', 'action' => array( 'type' => null, 'destination' => null ) ),
@@ -514,7 +476,7 @@ final class Config {
 				'enabled'  => true,
 				'title'    => 'پیشنهاد شگفت‌انگیز',
 				'subtitle' => '',
-				'layout'   => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
 				'category' => array(),
 				'brand'    => array(),
 				'on_sale'  => true,
@@ -527,7 +489,7 @@ final class Config {
 				'enabled'  => true,
 				'title'    => 'دسته‌بندی‌های ویژه',
 				'subtitle' => '',
-				'layout'   => array( 'component' => 'category_grid', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 5 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 5 ),
 				'include'  => array(),
 				'config'   => array( 'include_names' => array( 'لپ‌تاپ', 'کامپیوتر و تجهیزات جانبی', 'اسپیکر', 'هدفون و هندزفری', 'تجهیزات ذخیره‌سازی' ) ),
 			),
@@ -537,7 +499,7 @@ final class Config {
 				'enabled'  => true,
 				'title'    => 'جدیدترین محصولات',
 				'subtitle' => '',
-				'layout'   => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
 				'category' => array(),
 				'brand'    => array(),
 				'on_sale'  => false,
@@ -550,7 +512,7 @@ final class Config {
 				'enabled'        => true,
 				'title'          => 'کامپیوتر و تجهیزات جانبی',
 				'subtitle'       => '',
-				'layout'         => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
 				'category'       => array(),
 				'category_names' => array( 'کامپیوتر و تجهیزات جانبی' ),
 				'brand'          => array(),
@@ -564,7 +526,7 @@ final class Config {
 				'enabled'  => true,
 				'title'    => '',
 				'subtitle' => '',
-				'layout'   => array( 'component' => 'banner_grid', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 2 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 2 ),
 				'data'     => array(
 					array( 'title' => '', 'subtitle' => '', 'image' => $uploads . '2026/07/YademanSystem_banner_computer.webp' ),
 					array( 'title' => '', 'subtitle' => '', 'image' => $uploads . '2026/07/YademanSystem_banner_hardware.webp' ),
@@ -576,7 +538,7 @@ final class Config {
 				'enabled'        => true,
 				'title'          => 'لپ‌تاپ و لوازم جانبی',
 				'subtitle'       => '',
-				'layout'         => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
 				'category'       => array(),
 				'category_names' => array( 'لپ‌تاپ' ),
 				'brand'          => array(),
@@ -590,7 +552,7 @@ final class Config {
 				'enabled'        => true,
 				'title'          => 'انواع اسپیکر',
 				'subtitle'       => '',
-				'layout'         => array( 'component' => 'product_carousel', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
 				'category'       => array(),
 				'category_names' => array( 'اسپیکر' ),
 				'brand'          => array(),
@@ -604,7 +566,7 @@ final class Config {
 				'enabled'  => true,
 				'title'    => 'خرید بر اساس دسته‌بندی',
 				'subtitle' => '',
-				'layout'   => array( 'component' => 'category_grid', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 4 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 4 ),
 				'include'  => array(),
 				'config'   => array(
 					'include_names' => array( 'لوازم جانبی لپ‌تاپ', 'پایه خنک‌کننده لپ‌تاپ', 'کیبور و ماوس', 'سخت‌افزار', 'اسپیکر بی‌سیم', 'گوشی موبایل', 'لوازم جانبی موبایل', 'هندزفری', 'هارد', 'تجهیزات شبکه', 'ماشین‌های اداری', 'تجهیزات بازی', 'کیف، کوله و کاور', 'تلویزیون', 'ساعت هوشمند', 'تمیز کننده' ),
@@ -616,7 +578,7 @@ final class Config {
 				'enabled'  => true,
 				'title'    => 'محبوب‌ترین برندها',
 				'subtitle' => '',
-				'layout'   => array( 'component' => 'brand_grid', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 5 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 5 ),
 				'include'  => array(),
 				'config'   => array( 'include_names' => array( 'آئولا', 'اچ‌پی', 'ارلدام', 'انزو', 'ایسوس', 'تسکو', 'سامسونگ', 'سیلیکون پاور', 'فندا', 'لنوو' ) ),
 			),
@@ -626,7 +588,7 @@ final class Config {
 				'enabled'  => true,
 				'title'    => '',
 				'subtitle' => '',
-				'layout'   => array( 'component' => 'banner', 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
+				'layout'   => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
 				'data'     => array(
 					array( 'title' => '', 'subtitle' => '', 'image' => $uploads . '2026/07/YademanSystem_banner_smartwatch-scaled.webp' ),
 				),

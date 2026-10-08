@@ -20,7 +20,7 @@
 .app-api-tab-panel { display:none; }
 .app-api-tab-panel.is-active { display:block; }
 .app-api-card, .app-api-section-card { background:#fff; border:1px solid var(--app-api-border); border-radius:16px; box-shadow:0 3px 15px rgba(16,24,40,.035); }
-.app-api-order-card { padding:24px; margin-bottom:22px; }
+.app-api-order-card { padding:0; margin-bottom:22px; overflow:hidden; }
 .app-api-card-title, .app-api-repeater-header, .app-api-section-heading, .app-api-cache-card, .app-api-save-bar { display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .app-api-card-title h2, .app-api-section-heading h2 { margin:0 0 5px; font-size:20px; }
 .app-api-card-title p, .app-api-section-heading p, .app-api-repeater-header p, .app-api-cache-card p { margin:0; color:var(--app-api-muted); }
@@ -44,12 +44,16 @@
 .app-api-section-heading { margin:24px 4px 14px; }
 .app-api-section-cards { display:grid; gap:12px; }
 .app-api-section-card { overflow:hidden; }
-.app-api-section-card > summary { list-style:none; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:17px 20px; cursor:pointer; user-select:none; }
-.app-api-section-card > summary::-webkit-details-marker { display:none; }
-.app-api-section-card > summary:after { content:"⌄"; font-size:22px; color:#98a2b3; margin-right:8px; }
-.app-api-section-card[open] > summary:after { transform:rotate(180deg); }
-.app-api-section-card > summary > div { display:flex; flex-direction:column; gap:4px; flex:1; }
+.app-api-section-card > summary, .app-api-order-card > summary { list-style:none; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:17px 20px; cursor:pointer; user-select:none; }
+.app-api-section-card > summary::-webkit-details-marker, .app-api-order-card > summary::-webkit-details-marker { display:none; }
+.app-api-section-card > summary:after, .app-api-order-card > summary:after { content:"⌄"; font-size:22px; color:#98a2b3; margin-right:8px; transition:transform .22s ease; }
+.app-api-section-card[open] > summary:after, .app-api-order-card[open] > summary:after { transform:rotate(180deg); }
+.app-api-section-card > summary > div, .app-api-order-card > summary > div { display:flex; flex-direction:column; gap:4px; flex:1; }
 .app-api-section-card > summary small { color:var(--app-api-muted); }
+.app-api-order-card > summary h2 { margin:0 0 5px; font-size:20px; }
+.app-api-order-card > summary p { margin:0; color:var(--app-api-muted); }
+.app-api-order-body { padding:0 24px 24px; border-top:1px solid var(--app-api-border); }
+.app-api-accordion-body { will-change:height, opacity; }
 .app-api-section-card.is-disabled { opacity:.72; }
 .app-api-status { padding:5px 9px; border-radius:999px; background:#e9fbf4; color:var(--app-api-success); font-size:12px; font-weight:700; }
 .app-api-section-card.is-disabled .app-api-status { background:#f2f4f7; color:#667085; }
@@ -84,10 +88,10 @@
 .app-api-image-preview .dashicons { font-size:28px; width:28px; height:28px; }
 .app-api-item-fields { display:grid; gap:12px; align-content:start; }
 .button-link-delete { color:var(--app-api-danger)!important; cursor:pointer; }
-.app-api-cache-card { margin:20px 0 90px; padding:18px 20px; }
+.app-api-cache-card { margin:20px 0; padding:18px 20px; }
 .app-api-cache-card h3 { margin:0 0 4px; }
 .app-api-cache-card label { min-width:200px; }
-.app-api-save-bar { position:fixed; right:180px; left:20px; bottom:0; z-index:50; padding:13px 20px; background:rgba(255,255,255,.94); backdrop-filter:blur(10px); border:1px solid var(--app-api-border); border-bottom:0; border-radius:15px 15px 0 0; box-shadow:0 -6px 25px rgba(16,24,40,.08); }
+.app-api-save-bar { position:sticky; bottom:12px; z-index:50; width:calc(100% - 48px); margin:20px 24px 0; padding:12px 18px; background:rgba(255,255,255,.96); backdrop-filter:blur(10px); border:1px solid var(--app-api-border); border-radius:14px; box-shadow:0 8px 28px rgba(16,24,40,.12); }
 .app-api-save-bar span { color:var(--app-api-muted); }
 .app-api-save-bar .button-primary { min-height:42px; padding:0 24px; border-radius:9px; background:var(--app-api-primary); border-color:var(--app-api-primary); }
 .app-api-empty-state { display:grid; place-items:center; text-align:center; min-height:360px; padding:40px; background:#fff; border:1px dashed #cfd4dc; border-radius:16px; }
@@ -97,7 +101,6 @@
 @media (max-width: 1100px) {
 	.app-api-toggle-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 	.app-api-field-grid.four-columns { grid-template-columns:repeat(2,minmax(0,1fr)); }
-	.app-api-save-bar { right:36px; }
 }
 @media (max-width: 782px) {
 	.app-api-admin-wrap { margin-right:10px; }
@@ -107,7 +110,7 @@
 	.app-api-item-content { grid-template-columns:1fr; }
 	.app-api-media-field { max-width:260px; }
 	.app-api-inline-field { grid-template-columns:1fr; }
-	.app-api-save-bar { right:0; left:0; border-radius:0; }
+	.app-api-save-bar { width:100%; margin:18px 0 0; border-radius:12px; }
 	.app-api-save-bar span { display:none; }
 }
 
@@ -128,7 +131,7 @@
 .app-api-type-panel[hidden] { display:none!important; }
 .app-api-admin-wrap label small { display:block; margin-top:5px; color:var(--app-api-muted); font-weight:400; }
 .app-api-sale-check { margin-top:16px; padding:11px 13px; border:1px solid #b7ead7; border-radius:10px; background:#f2fcf8; }
-.app-api-section-id-input, .app-api-component-input { direction:ltr; text-align:left; }
+.app-api-section-id-input { direction:ltr; text-align:left; }
 .app-api-order-card .app-api-toggle-grid:empty:after, #app-api-active-sections:empty:after { content:"هنوز بخشی ساخته نشده است."; display:block; padding:18px; color:var(--app-api-muted); text-align:center; border:1px dashed var(--app-api-border); border-radius:11px; grid-column:1/-1; }
 .app-api-section-cards:empty:after { content:"از قسمت بالا اولین بخش صفحه خانه را بساز."; display:grid; place-items:center; min-height:180px; padding:30px; color:var(--app-api-muted); background:#fff; border:1px dashed var(--app-api-border); border-radius:16px; }
 
@@ -160,11 +163,6 @@
 	border: 1px solid #e1e4ea;
 	border-radius: 12px;
 	background: #fff;
-}
-.app-api-action-title-note {
-	margin: 0 0 12px;
-	color: var(--app-api-muted);
-	font-size: 12px;
 }
 .app-api-action-sale-field {
 	margin-top: 12px;

@@ -163,7 +163,6 @@ final class SettingsPage {
 				'title'    => sanitize_text_field( (string) ( $section['title'] ?? '' ) ),
 				'subtitle' => sanitize_text_field( (string) ( $section['subtitle'] ?? '' ) ),
 				'layout'   => array(
-					'component' => $this->sanitize_component( (string) ( $layout['component'] ?? $default_layout['component'] ), $default_layout['component'] ),
 					'direction' => $direction,
 					'rows'      => $this->positive_int( $layout['rows'] ?? 1, 12 ),
 					'columns'   => $this->positive_int( $layout['columns'] ?? 1, 12 ),
@@ -263,12 +262,6 @@ final class SettingsPage {
 	}
 
 
-	private function sanitize_component( string $component, string $fallback ): string {
-		$component = trim( $component );
-		$component = preg_replace( '/[^A-Za-z0-9_-]+/', '_', $component );
-		$component = trim( (string) $component, '_-' );
-		return $component ?: $fallback;
-	}
 
 	private function sanitize_api_id( string $id, string $fallback ): string {
 		$id = strtolower( trim( $id ) );
@@ -339,7 +332,7 @@ final class SettingsPage {
 					<?php $this->render_home_order( $config ); ?>
 
 					<div class="app-api-section-heading">
-						<div><h2>تنظیمات بخش‌های صفحه خانه</h2><p>هر کارت یک بخش مستقل از JSON خانه است. ID، Component، محتوا و چیدمان هر بخش را مدیریت می‌کنی؛ نوع بخش پس از ساخت ثابت می‌ماند.</p></div>
+						<div><h2>تنظیمات بخش‌های صفحه خانه</h2></div>
 					</div>
 
 					<div class="app-api-section-cards" id="app-api-section-cards">
@@ -408,51 +401,51 @@ final class SettingsPage {
 
 	private function render_home_order( array $config ): void {
 		?>
-		<div class="app-api-card app-api-order-card">
-			<div class="app-api-card-title">
-				<div><h2>فعال‌سازی و ترتیب نمایش</h2><p>بخش‌های فعال را جابه‌جا کن؛ بخش غیرفعال از API و فهرست ترتیب حذف می‌شود، اما تنظیماتش حفظ می‌گردد.</p></div>
-				<span class="app-api-pill">Drag & Drop</span>
-			</div>
-
-			<div class="app-api-builder-toolbar">
-				<div>
-					<strong>افزودن بخش جدید</strong>
-					<span>نوع بخش را انتخاب کن؛ نوع پس از ساخت ثابت است و سایر تنظیمات قابل تغییر هستند.</span>
+		<details class="app-api-card app-api-order-card app-api-accordion" open>
+			<summary>
+				<div class="app-api-card-title-text"><h2>فعال‌سازی و ترتیب نمایش</h2><p>بخش‌های فعال را جابه‌جا کن؛ بخش غیرفعال از API و فهرست ترتیب حذف می‌شود، اما تنظیماتش حفظ می‌گردد.</p></div>
+			</summary>
+			<div class="app-api-order-body app-api-accordion-body">
+				<div class="app-api-builder-toolbar">
+					<div>
+						<strong>افزودن بخش جدید</strong>
+						<span>نوع بخش را انتخاب کن؛ نوع پس از ساخت ثابت است و سایر تنظیمات قابل تغییر هستند.</span>
+					</div>
+					<div class="app-api-add-section-controls">
+						<select id="app-api-new-section-type">
+							<?php foreach ( Config::addable_section_types() as $type => $label ) : ?>
+								<option value="<?php echo esc_attr( $type ); ?>"><?php echo esc_html( $label ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<button type="button" class="button button-primary" id="app-api-add-section"><span class="dashicons dashicons-plus-alt2"></span> افزودن بخش</button>
+					</div>
 				</div>
-				<div class="app-api-add-section-controls">
-					<select id="app-api-new-section-type">
-						<?php foreach ( Config::addable_section_types() as $type => $label ) : ?>
-							<option value="<?php echo esc_attr( $type ); ?>"><?php echo esc_html( $label ); ?></option>
-						<?php endforeach; ?>
-					</select>
-					<button type="button" class="button button-primary" id="app-api-add-section"><span class="dashicons dashicons-plus-alt2"></span> افزودن بخش</button>
+
+				<div class="app-api-toggle-grid" id="app-api-section-toggles">
+					<?php foreach ( $config['order'] as $key ) : ?>
+						<?php
+						$section = $config['sections'][ $key ];
+						$label   = $this->section_label( $section );
+						?>
+						<label class="app-api-toggle" data-toggle-section="<?php echo esc_attr( $key ); ?>" data-label="<?php echo esc_attr( $label ); ?>" data-type="<?php echo esc_attr( $section['type'] ); ?>">
+							<input type="checkbox" class="app-api-section-enabled" name="<?php echo esc_attr( Config::OPTION_HOME_CONFIG ); ?>[sections][<?php echo esc_attr( $key ); ?>][enabled]" value="1" <?php checked( ! empty( $section['enabled'] ) ); ?>>
+							<span class="app-api-switch"></span>
+							<span class="app-api-toggle-label"><?php echo esc_html( $label ); ?></span>
+						</label>
+					<?php endforeach; ?>
 				</div>
-			</div>
 
-			<div class="app-api-toggle-grid" id="app-api-section-toggles">
-				<?php foreach ( $config['order'] as $key ) : ?>
-					<?php
-					$section = $config['sections'][ $key ];
-					$label   = $this->section_label( $section );
-					?>
-					<label class="app-api-toggle" data-toggle-section="<?php echo esc_attr( $key ); ?>" data-label="<?php echo esc_attr( $label ); ?>" data-type="<?php echo esc_attr( $section['type'] ); ?>">
-						<input type="checkbox" class="app-api-section-enabled" name="<?php echo esc_attr( Config::OPTION_HOME_CONFIG ); ?>[sections][<?php echo esc_attr( $key ); ?>][enabled]" value="1" <?php checked( ! empty( $section['enabled'] ) ); ?>>
-						<span class="app-api-switch"></span>
-						<span class="app-api-toggle-label"><?php echo esc_html( $label ); ?></span>
-					</label>
-				<?php endforeach; ?>
+				<input type="hidden" id="app-api-section-order" name="<?php echo esc_attr( Config::OPTION_HOME_CONFIG ); ?>[order]" value="<?php echo esc_attr( implode( ',', $config['order'] ) ); ?>">
+				<ul class="app-api-sortable" id="app-api-active-sections">
+					<?php foreach ( $config['order'] as $key ) : ?>
+						<?php $section = $config['sections'][ $key ]; ?>
+						<?php if ( ! empty( $section['enabled'] ) ) : ?>
+							<?php $this->render_order_item( $key, $this->section_label( $section ), $section['type'] ); ?>
+						<?php endif; ?>
+					<?php endforeach; ?>
+				</ul>
 			</div>
-
-			<input type="hidden" id="app-api-section-order" name="<?php echo esc_attr( Config::OPTION_HOME_CONFIG ); ?>[order]" value="<?php echo esc_attr( implode( ',', $config['order'] ) ); ?>">
-			<ul class="app-api-sortable" id="app-api-active-sections">
-				<?php foreach ( $config['order'] as $key ) : ?>
-					<?php $section = $config['sections'][ $key ]; ?>
-					<?php if ( ! empty( $section['enabled'] ) ) : ?>
-						<?php $this->render_order_item( $key, $this->section_label( $section ), $section['type'] ); ?>
-					<?php endif; ?>
-				<?php endforeach; ?>
-			</ul>
-		</div>
+		</details>
 		<?php
 	}
 
@@ -475,12 +468,12 @@ final class SettingsPage {
 		$name   = Config::OPTION_HOME_CONFIG . '[sections][' . $key . ']';
 		$layout = isset( $section['layout'] ) && is_array( $section['layout'] ) ? $section['layout'] : Config::default_layout_for_type( $type );
 		?>
-		<details class="app-api-section-card <?php echo empty( $section['enabled'] ) ? 'is-disabled' : ''; ?>" data-section-card="<?php echo esc_attr( $key ); ?>" data-section-type="<?php echo esc_attr( $type ); ?>">
+		<details class="app-api-section-card app-api-accordion <?php echo empty( $section['enabled'] ) ? 'is-disabled' : ''; ?>" data-section-card="<?php echo esc_attr( $key ); ?>" data-section-type="<?php echo esc_attr( $type ); ?>">
 			<summary>
 				<div><strong class="app-api-card-label"><?php echo esc_html( $label ); ?></strong><small><code class="app-api-card-id"><?php echo esc_html( $section['id'] ); ?></code> · <span class="app-api-card-type"><?php echo esc_html( Config::section_type_label( $type ) ); ?></span></small></div>
 				<div class="app-api-summary-actions"><span class="app-api-status"><?php echo empty( $section['enabled'] ) ? 'غیرفعال' : 'فعال'; ?></span><button type="button" class="button-link-delete app-api-delete-section">حذف بخش</button></div>
 			</summary>
-			<div class="app-api-section-body">
+			<div class="app-api-section-body app-api-accordion-body">
 				<div class="app-api-field-grid four-columns">
 					<label><span>ID دلخواه بخش</span><input type="text" dir="ltr" class="app-api-section-id-input" name="<?php echo esc_attr( $name ); ?>[id]" value="<?php echo esc_attr( $section['id'] ); ?>" placeholder="مثلاً amazing_offers"><small>فقط حروف انگلیسی، عدد، خط تیره و زیرخط</small></label>
 					<label><span>نوع بخش</span><input type="text" dir="ltr" class="app-api-section-type-display" value="<?php echo esc_attr( $type ); ?>" readonly><input type="hidden" class="app-api-section-type-select" name="<?php echo esc_attr( $name ); ?>[type]" value="<?php echo esc_attr( $type ); ?>"><small>نوع این بخش ثابت است.</small></label>
@@ -489,9 +482,8 @@ final class SettingsPage {
 				</div>
 
 				<div class="app-api-subcard">
-					<div class="app-api-subcard-heading"><div><h4>چیدمان خروجی</h4><p>اپلیکیشن می‌تواند از Component و تعداد سطر / ستون برای انتخاب ویجت و نحوه چیدن آیتم‌ها استفاده کند.</p></div></div>
-					<div class="app-api-field-grid four-columns">
-						<label><span>Component</span><input type="text" dir="ltr" class="app-api-component-input" name="<?php echo esc_attr( $name ); ?>[layout][component]" value="<?php echo esc_attr( $layout['component'] ?? '' ); ?>"></label>
+					<div class="app-api-subcard-heading"><div><h4>چیدمان خروجی</h4></div></div>
+					<div class="app-api-field-grid three-columns">
 						<label><span>جهت نمایش</span><select name="<?php echo esc_attr( $name ); ?>[layout][direction]"><option value="horizontal" <?php selected( $layout['direction'] ?? '', 'horizontal' ); ?>>افقی</option><option value="vertical" <?php selected( $layout['direction'] ?? '', 'vertical' ); ?>>عمودی</option></select></label>
 						<label><span>تعداد سطر</span><input type="number" min="1" max="12" name="<?php echo esc_attr( $name ); ?>[layout][rows]" value="<?php echo esc_attr( $layout['rows'] ?? 1 ); ?>" placeholder="پیش‌فرض 1"></label>
 						<label><span>تعداد ستون</span><input type="number" min="1" max="12" name="<?php echo esc_attr( $name ); ?>[layout][columns]" value="<?php echo esc_attr( $layout['columns'] ?? 1 ); ?>" placeholder="پیش‌فرض 1"></label>
@@ -600,12 +592,11 @@ final class SettingsPage {
 		$label         = $is_url ? 'لینک مقصد' : ( $is_identifier ? 'شناسه مقصد' : 'بدون مقصد' );
 		?>
 		<div class="app-api-action-editor app-api-action-fields" data-action-title="<?php echo esc_attr( $title ); ?>">
-			<p class="app-api-action-title-note">پارامتر <code>action.title</code> به‌صورت خودکار از عنوان همین آیتم گرفته می‌شود.</p>
 			<div class="app-api-field-grid four-columns">
 				<label><span>نوع مقصد</span><select name="<?php echo esc_attr( $name ); ?>[type]" class="app-api-action-type"><?php $this->render_action_options( $action_type ); ?></select></label>
 				<label class="app-api-destination-field"><span class="app-api-destination-label"><?php echo esc_html( $label ); ?></span><input type="text" dir="ltr" class="app-api-action-destination" name="<?php echo esc_attr( $name ); ?>[destination]" value="<?php echo esc_attr( $destination ); ?>" <?php disabled( ! $is_identifier && ! $is_url ); ?>></label>
 				<label><span>مرتب‌سازی</span><select name="<?php echo esc_attr( $name ); ?>[orderby]" class="app-api-action-orderby"><?php $this->render_action_orderby_options( (string) $action['orderby'] ); ?></select></label>
-				<label><span>ترتیب</span><select name="<?php echo esc_attr( $name ); ?>[order]"><option value="desc" <?php selected( $action['order'], 'desc' ); ?>>نزولی (desc)</option><option value="asc" <?php selected( $action['order'], 'asc' ); ?>>صعودی (asc)</option></select></label>
+				<label><span>ترتیب</span><select name="<?php echo esc_attr( $name ); ?>[order]"><option value="desc" <?php selected( $action['order'], 'desc' ); ?>>نزولی</option><option value="asc" <?php selected( $action['order'], 'asc' ); ?>>صعودی</option></select></label>
 			</div>
 			<label class="app-api-check app-api-action-sale-field" <?php echo $is_sale_type ? '' : 'hidden'; ?>><input type="checkbox" name="<?php echo esc_attr( $name ); ?>[on_sale]" value="1" <?php checked( true === $action['on_sale'] ); ?> <?php disabled( ! $is_sale_type ); ?>> فقط محصولات تخفیف‌دار نمایش داده شوند</label>
 		</div>
@@ -627,11 +618,11 @@ final class SettingsPage {
 
 	private function render_action_orderby_options( string $selected ): void {
 		$options = array(
-			'date'       => 'تاریخ (date)',
-			'price'      => 'قیمت (price)',
-			'popularity' => 'محبوبیت (popularity)',
-			'rating'     => 'امتیاز (rating)',
-			'cout_sales' => 'تعداد فروش (cout_sales)',
+			'date'       => 'تاریخ',
+			'price'      => 'قیمت',
+			'popularity' => 'محبوبیت',
+			'rating'     => 'امتیاز',
+			'cout_sales' => 'تعداد فروش',
 		);
 		foreach ( $options as $value => $label ) {
 			printf( '<option value="%1$s" %2$s>%3$s</option>', esc_attr( $value ), selected( $selected, $value, false ), esc_html( $label ) );
