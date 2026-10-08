@@ -94,6 +94,11 @@ final class HomeBuilder {
 				$base['data']     = $this->brands( $section );
 				$base['view_all'] = $this->view_all( $section );
 				return $base;
+
+			case 'posts':
+				$base['data']     = $this->posts( $section );
+				$base['view_all'] = $this->view_all( $section );
+				return $base;
 		}
 
 		return null;
@@ -226,7 +231,65 @@ final class HomeBuilder {
 			)
 		);
 
-		return $this->format_terms( $terms );
+		if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
+			return array();
+		}
+
+		$counts = Taxonomy::published_product_counts( $taxonomy, $include );
+		$result = array();
+		foreach ( $terms as $term ) {
+			if ( ! $term instanceof \WP_Term ) {
+				continue;
+			}
+			$result[] = array(
+				'id'    => (int) $term->term_id,
+				'name'  => $term->name,
+				'count' => (int) ( $counts[ (int) $term->term_id ] ?? $term->count ),
+				'image' => Taxonomy::term_image_url( $term ),
+			);
+		}
+
+		return $result;
+	}
+
+	private function posts( array $section ): array {
+		$category_ids = Request::ids( $section['category'] ?? array() );
+		$per_page     = absint( $section['per_page'] ?? 10 );
+		$per_page     = min( 50, max( 1, $per_page ?: 10 ) );
+
+		$args = array(
+			'post_type'              => 'post',
+			'post_status'            => 'publish',
+			'posts_per_page'         => $per_page,
+			'ignore_sticky_posts'    => true,
+			'orderby'                => 'date',
+			'order'                  => 'DESC',
+			'no_found_rows'          => true,
+			'update_post_meta_cache' => true,
+			'update_post_term_cache' => false,
+		);
+		if ( $category_ids ) {
+			$args['category__in'] = $category_ids;
+		}
+
+		$query  = new \WP_Query( $args );
+		$result = array();
+		foreach ( $query->posts as $post ) {
+			if ( ! $post instanceof \WP_Post ) {
+				continue;
+			}
+			$thumbnail_id = get_post_thumbnail_id( $post );
+			$excerpt      = has_excerpt( $post ) ? $post->post_excerpt : wp_trim_words( wp_strip_all_tags( strip_shortcodes( $post->post_content ) ), 24, '…' );
+			$result[] = array(
+				'id'      => (int) $post->ID,
+				'title'   => get_the_title( $post ),
+				'excerpt' => wp_strip_all_tags( $excerpt ),
+				'image'   => $thumbnail_id ? Taxonomy::attachment_image_url( (int) $thumbnail_id ) : '',
+				'date'    => get_post_time( DATE_ATOM, false, $post, true ),
+			);
+		}
+
+		return $result;
 	}
 
 	private function format_terms( $terms ): array {
@@ -249,7 +312,7 @@ final class HomeBuilder {
 			'name'   => $term->name,
 			'parent' => (int) $term->parent,
 			'count'  => (int) $term->count,
-			'image'  => $this->term_image_url( $term ),
+			'image'  => Taxonomy::term_image_url( $term ),
 		);
 	}
 
@@ -349,15 +412,28 @@ final class HomeBuilder {
 		return $url ? esc_url_raw( $url ) : '';
 	}
 
-	private function view_all( array $section ): array {
+	private function view_all( array $section ) {
+		if ( array_key_exists( 'view_all_enabled', $section ) && empty( $section['view_all_enabled'] ) ) {
+			return new \stdClass();
+		}
+
 		$title  = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
 		$action = isset( $section['view_all_action'] ) && is_array( $section['view_all_action'] )
 			? $section['view_all_action']
 			: array();
+		$resolved = $this->resolve_action( $action, $title );
+		if ( 'posts' === ( $section['type'] ?? '' ) ) {
+			$resolved['on_sale'] = null;
+			if ( ! in_array( $resolved['type'], array( 'category', 'url', null ), true ) ) {
+				$resolved['type'] = null;
+				$resolved['destination_id'] = null;
+				$resolved['url'] = null;
+			}
+		}
 
 		return array(
 			'title'  => $title,
-			'action' => $this->resolve_action( $action, $title ),
+			'action' => $resolved,
 		);
 	}
 

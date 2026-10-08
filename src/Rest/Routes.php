@@ -71,12 +71,6 @@ final class Routes {
 				'type'              => 'string',
 				'sanitize_callback' => 'sanitize_text_field',
 			),
-			'type' => array(
-				'type'              => 'string',
-				'description'       => 'One product type slug, for example simple or variable. Omit it to include every published product type.',
-				'sanitize_callback' => 'sanitize_key',
-				'validate_callback' => array( $this, 'validate_product_type' ),
-			),
 			'on_sale' => array(
 				'description' => 'true or false.',
 			),
@@ -85,9 +79,6 @@ final class Routes {
 			),
 			'brand' => array(
 				'description' => 'One brand ID, a comma-separated list, or an array of brand IDs.',
-			),
-			'tag' => array(
-				'description' => 'One tag ID, a comma-separated list, or an array of tag IDs.',
 			),
 			'min_price' => array(
 				'type'    => 'number',
@@ -110,16 +101,4 @@ final class Routes {
 		);
 	}
 
-	public function validate_product_type( $value ): bool {
-		if ( null === $value || '' === trim( (string) $value ) ) {
-			return true;
-		}
-
-		if ( is_array( $value ) || false !== strpos( (string) $value, ',' ) ) {
-			return false;
-		}
-
-		$type = sanitize_key( (string) $value );
-		return '' !== $type && $type === (string) $value;
-	}
 }

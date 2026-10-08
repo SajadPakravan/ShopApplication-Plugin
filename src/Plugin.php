@@ -137,6 +137,7 @@ final class Plugin {
 		add_action( 'delete_term', array( Cache::class, 'bump_for_product_term' ), 10, 3 );
 		add_action( 'wp_update_nav_menu', array( Cache::class, 'bump_home_version' ) );
 		add_action( 'save_post_page', array( $this, 'bump_home_for_front_page' ), 10, 3 );
+		add_action( 'save_post_post', array( Cache::class, 'bump_home_version' ) );
 		add_action( 'update_option_' . Config::OPTION_HOME_SECTIONS, array( Cache::class, 'bump_home_version' ) );
 		add_action( 'update_option_' . Config::OPTION_HOME_CONFIG, array( Cache::class, 'bump_home_version' ) );
 		add_action( 'update_option_' . Config::OPTION_HOME_BANNERS, array( Cache::class, 'bump_home_version' ) );

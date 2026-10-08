@@ -12,12 +12,9 @@ final class Config {
 	public const OPTION_HOME_SECTIONS       = 'app_api_home_sections_json';
 	public const OPTION_HOME_CONFIG         = 'app_api_home_configuration';
 	public const OPTION_HOME_BANNERS        = 'app_api_home_banners_json';
-	public const OPTION_HOME_CACHE          = 'app_api_home_cache_ttl';
 	public const OPTION_CACHE_VERSION       = 'app_api_home_cache_version';
 	public const OPTION_HOME_PRESET_VERSION = 'app_api_home_preset_version';
 	public const OPTION_HOME_ENDPOINT       = 'app_api_home_endpoint';
-	public const OPTION_PRODUCTS_ENDPOINT   = 'app_api_products_endpoint';
-	public const OPTION_PRODUCT_ENDPOINT    = 'app_api_product_endpoint';
 
 	/**
 	 * Types the administrator can add from the visual home-page API builder.
@@ -28,6 +25,7 @@ final class Config {
 			'products' => 'محصولات',
 			'category' => 'دسته‌بندی',
 			'brand'    => 'برند',
+			'posts'    => 'نوشته‌ها',
 		);
 	}
 
@@ -169,16 +167,24 @@ final class Config {
 		if ( 'image' === $type ) {
 			$section['data'] = array();
 		} elseif ( 'products' === $type ) {
-			$section['category']        = array();
-			$section['brand']           = array();
-			$section['on_sale']         = false;
-			$section['per_page']        = 10;
-			$section['view_all_title']  = 'مشاهده همه';
-			$section['view_all_action'] = self::default_action( 'مشاهده همه' );
+			$section['category']         = array();
+			$section['brand']            = array();
+			$section['on_sale']          = false;
+			$section['per_page']         = 10;
+			$section['view_all_enabled'] = true;
+			$section['view_all_title']   = 'مشاهده همه';
+			$section['view_all_action']  = self::default_action( 'مشاهده همه' );
 		} elseif ( 'category' === $type || 'brand' === $type ) {
-			$section['include']         = array();
-			$section['view_all_title']  = 'مشاهده همه';
-			$section['view_all_action'] = self::default_action( 'مشاهده همه' );
+			$section['include']          = array();
+			$section['view_all_enabled'] = true;
+			$section['view_all_title']   = 'مشاهده همه';
+			$section['view_all_action']  = self::default_action( 'مشاهده همه' );
+		} elseif ( 'posts' === $type ) {
+			$section['category']         = array();
+			$section['per_page']         = 10;
+			$section['view_all_enabled'] = true;
+			$section['view_all_title']   = 'مشاهده همه';
+			$section['view_all_action']  = self::default_action( 'مشاهده همه' );
 		}
 
 		return $section;
@@ -267,6 +273,7 @@ final class Config {
 				$clean['brand']          = self::ids( $brand );
 				$clean['on_sale']        = $on_sale;
 				$clean['per_page']       = min( 50, max( 1, $per_page ?: 10 ) );
+				$clean['view_all_enabled'] = array_key_exists( 'view_all_enabled', $section ) ? ! empty( $section['view_all_enabled'] ) : true;
 				$clean['view_all_title'] = sanitize_text_field(
 					(string) ( $section['view_all_title'] ?? ( $section['view_all']['title'] ?? 'مشاهده همه' ) )
 				) ?: 'مشاهده همه';
@@ -285,11 +292,26 @@ final class Config {
 				$clean['include'] = self::ids( $section['include'] ?? ( $config['include'] ?? array() ) );
 				$clean['include_names'] = isset( $config['include_names'] ) && is_array( $config['include_names'] ) ? array_values( $config['include_names'] ) : array();
 				$clean['include_slugs'] = isset( $config['include_slugs'] ) && is_array( $config['include_slugs'] ) ? array_values( $config['include_slugs'] ) : array();
+				$clean['view_all_enabled'] = array_key_exists( 'view_all_enabled', $section ) ? ! empty( $section['view_all_enabled'] ) : true;
 				$clean['view_all_title'] = sanitize_text_field(
 					(string) ( $section['view_all_title'] ?? ( $section['view_all']['title'] ?? 'مشاهده همه' ) )
 				) ?: 'مشاهده همه';
 				$view_all_action = $section['view_all_action'] ?? ( $section['view_all']['action'] ?? array() );
 				$clean['view_all_action'] = self::normalize_action( $view_all_action, $clean['view_all_title'] );
+			}
+
+
+			if ( 'posts' === $type ) {
+				$clean['category'] = self::ids( $section['category'] ?? array() );
+				$per_page = absint( $section['per_page'] ?? 10 );
+				$clean['per_page'] = min( 50, max( 1, $per_page ?: 10 ) );
+				$clean['view_all_enabled'] = array_key_exists( 'view_all_enabled', $section ) ? ! empty( $section['view_all_enabled'] ) : true;
+				$clean['view_all_title'] = sanitize_text_field(
+					(string) ( $section['view_all_title'] ?? ( $section['view_all']['title'] ?? 'مشاهده همه' ) )
+				) ?: 'مشاهده همه';
+				$view_all_action = $section['view_all_action'] ?? ( $section['view_all']['action'] ?? array() );
+				$clean['view_all_action'] = self::normalize_action( $view_all_action, $clean['view_all_title'] );
+				$clean['view_all_action']['on_sale'] = null;
 			}
 
 			$sections[ $key ] = $clean;
@@ -355,6 +377,9 @@ final class Config {
 		if ( in_array( $type, array( 'brands', 'brand' ), true ) ) {
 			return 'brand';
 		}
+		if ( in_array( $type, array( 'post', 'posts' ), true ) ) {
+			return 'posts';
+		}
 		return $type;
 	}
 
@@ -387,11 +412,11 @@ final class Config {
 	}
 
 	public static function products_endpoint(): string {
-		return self::endpoint_slug( get_option( self::OPTION_PRODUCTS_ENDPOINT, 'products' ), 'products' );
+		return 'products';
 	}
 
 	public static function product_endpoint(): string {
-		return self::endpoint_slug( get_option( self::OPTION_PRODUCT_ENDPOINT, 'products' ), 'products' );
+		return 'products';
 	}
 
 	public static function endpoint_slug( $value, string $fallback ): string {
@@ -429,6 +454,7 @@ final class Config {
 				'brand'    => array(),
 				'on_sale'  => false,
 				'per_page' => 10,
+				'view_all_enabled' => true,
 				'view_all_title' => 'مشاهده همه',
 			),
 		);
@@ -481,6 +507,7 @@ final class Config {
 				'brand'    => array(),
 				'on_sale'  => true,
 				'per_page' => 10,
+				'view_all_enabled' => true,
 				'view_all_title' => 'مشاهده همه',
 			),
 			array(
@@ -504,6 +531,7 @@ final class Config {
 				'brand'    => array(),
 				'on_sale'  => false,
 				'per_page' => 10,
+				'view_all_enabled' => true,
 				'view_all_title' => 'مشاهده همه',
 			),
 			array(
@@ -518,6 +546,7 @@ final class Config {
 				'brand'          => array(),
 				'on_sale'        => false,
 				'per_page'       => 10,
+				'view_all_enabled' => true,
 				'view_all_title' => 'مشاهده همه',
 			),
 			array(
@@ -544,6 +573,7 @@ final class Config {
 				'brand'          => array(),
 				'on_sale'        => false,
 				'per_page'       => 10,
+				'view_all_enabled' => true,
 				'view_all_title' => 'مشاهده همه',
 			),
 			array(
@@ -558,6 +588,7 @@ final class Config {
 				'brand'          => array(),
 				'on_sale'        => false,
 				'per_page'       => 10,
+				'view_all_enabled' => true,
 				'view_all_title' => 'مشاهده همه',
 			),
 			array(

@@ -109,7 +109,22 @@ final class ProductRepository {
 		}
 
 		if ( null !== $this->context['on_sale'] ) {
-			$clauses['where'] .= $wpdb->prepare( " AND {$lookup_alias}.onsale = %d ", $this->context['on_sale'] ? 1 : 0 );
+			$variation_sale_exists = "EXISTS (
+				SELECT 1
+				FROM {$wpdb->posts} app_api_sale_variation
+				INNER JOIN {$lookup_table} app_api_sale_variation_lookup
+					ON app_api_sale_variation_lookup.product_id = app_api_sale_variation.ID
+				WHERE app_api_sale_variation.post_parent = {$wpdb->posts}.ID
+					AND app_api_sale_variation.post_type = 'product_variation'
+					AND app_api_sale_variation.post_status = 'publish'
+					AND app_api_sale_variation_lookup.onsale = 1
+			)";
+
+			if ( $this->context['on_sale'] ) {
+				$clauses['where'] .= " AND (COALESCE({$lookup_alias}.onsale, 0) = 1 OR {$variation_sale_exists}) ";
+			} else {
+				$clauses['where'] .= " AND COALESCE({$lookup_alias}.onsale, 0) = 0 AND NOT {$variation_sale_exists} ";
+			}
 		}
 
 		if ( null !== $this->context['min_price'] ) {

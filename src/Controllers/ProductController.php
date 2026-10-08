@@ -3,6 +3,7 @@
 namespace AppAPI\Controllers;
 
 use AppAPI\Config;
+use AppAPI\Services\ProductFilterBuilder;
 use AppAPI\Services\ProductFormatter;
 use AppAPI\Services\ProductRepository;
 use AppAPI\Support\Request;
@@ -14,10 +15,12 @@ defined( 'ABSPATH' ) || exit;
 final class ProductController {
 	private $repository;
 	private $formatter;
+	private $filters;
 
-	public function __construct( ?ProductRepository $repository = null, ?ProductFormatter $formatter = null ) {
+	public function __construct( ?ProductRepository $repository = null, ?ProductFormatter $formatter = null, ?ProductFilterBuilder $filters = null ) {
 		$this->repository = $repository ?: new ProductRepository();
 		$this->formatter  = $formatter ?: new ProductFormatter();
+		$this->filters    = $filters ?: new ProductFilterBuilder();
 	}
 
 	public function index( \WP_REST_Request $request ) {
@@ -65,16 +68,15 @@ final class ProductController {
 				'has_next'            => $params['page'] < $result['pages'],
 				'has_previous'        => $params['page'] > 1,
 			),
-			'filters'    => array(
-				'search'         => $params['search'] ?: null,
-				'category'       => $params['category'],
-				'brand'          => $params['brand'],
-				'tag'            => $params['tag'],
-				'min_price'      => $params['min_price'],
-				'max_price'      => $params['max_price'],
-				'orderby'        => $params['orderby'],
-				'order'          => $params['order'],
-				'brand_taxonomy' => Taxonomy::brand_taxonomy(),
+			'filters'    => $this->filters->build(),
+			'filter_by'  => array(
+				'search'    => '' !== $params['search'] ? $params['search'] : null,
+				'category'  => $params['category'],
+				'brand'     => $params['brand'],
+				'min_price' => $params['min_price'],
+				'max_price' => $params['max_price'],
+				'orderby'   => $params['orderby'],
+				'order'     => $params['order'],
 			),
 			'data'       => $data,
 		);
@@ -126,17 +128,18 @@ final class ProductController {
 
 		$min_price = $request->get_param( 'min_price' );
 		$max_price = $request->get_param( 'max_price' );
-		$type      = trim( (string) $request->get_param( 'type' ) );
 
 		return array(
 			'page'       => max( 1, absint( $request->get_param( 'page' ) ?: 1 ) ),
 			'per_page'   => $per_page,
 			'search'     => sanitize_text_field( (string) $request->get_param( 'search' ) ),
-			'type'        => '' === $type ? null : sanitize_key( $type ),
+			'type'       => null,
+			// on_sale remains a supported request parameter for view-all actions,
+			// but is intentionally not repeated in the lightweight filter_by object.
 			'on_sale'    => Request::nullable_boolean( $request->get_param( 'on_sale' ) ),
 			'category'   => Request::ids( $this->canonical_or_legacy_param( $request, 'category', 'categories' ) ),
 			'brand'      => Request::ids( $this->canonical_or_legacy_param( $request, 'brand', 'brands' ) ),
-			'tag'        => Request::ids( $this->canonical_or_legacy_param( $request, 'tag', 'tags' ) ),
+			'tag'        => array(),
 			'min_price'  => null === $min_price || '' === $min_price ? null : max( 0, (float) $min_price ),
 			'max_price'  => null === $max_price || '' === $max_price ? null : max( 0, (float) $max_price ),
 			'orderby'    => $orderby,
@@ -144,15 +147,10 @@ final class ProductController {
 		);
 	}
 
-	/**
-	 * Singular public parameters are canonical. Plural aliases are accepted to
-	 * avoid breaking an already-installed application build during migration.
-	 */
 	private function canonical_or_legacy_param( \WP_REST_Request $request, string $canonical, string $legacy ) {
 		if ( $request->has_param( $canonical ) ) {
 			return $request->get_param( $canonical );
 		}
-
 		return $request->get_param( $legacy );
 	}
 }

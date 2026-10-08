@@ -117,7 +117,7 @@
 		var $saleField = $container.find('.app-api-action-sale-field').first();
 		var $saleInput = $saleField.find('input[type="checkbox"]').first();
 		var identifierType = ['product', 'category', 'brand'].indexOf(type) !== -1;
-		var saleType = ['category', 'brand'].indexOf(type) !== -1;
+		var saleType = String($container.attr('data-allow-sale') || '1') !== '0' && ['category', 'brand'].indexOf(type) !== -1;
 
 		if (type === 'url') {
 			$label.text('لینک مقصد');
@@ -136,6 +136,20 @@
 		} else {
 			$saleInput.prop('checked', false).prop('disabled', true);
 			$saleField.prop('hidden', true);
+		}
+	}
+
+	function syncViewAll($checkbox) {
+		var $settings = $checkbox.closest('.app-api-view-all-settings');
+		var $fields = $settings.find('.app-api-view-all-fields').first();
+		var checked = $checkbox.is(':checked');
+		var panelActive = !$checkbox.prop('disabled') && !$settings.closest('.app-api-type-panel').prop('hidden');
+		$fields.prop('hidden', !checked);
+		$fields.find(':input').prop('disabled', !panelActive);
+		if (panelActive) {
+			$fields.find('.app-api-action-type').each(function () {
+				syncActionField($(this));
+			});
 		}
 	}
 
@@ -169,6 +183,9 @@
 			var active = $panel.data('type-panel') === type;
 			$panel.prop('hidden', !active);
 			$panel.find(':input').prop('disabled', !active);
+			if (active) {
+				$panel.find('.app-api-view-all-enabled').each(function () { syncViewAll($(this)); });
+			}
 		});
 	}
 
@@ -268,6 +285,10 @@
 			syncActionField($(this));
 		});
 
+		$('.app-api-view-all-enabled').each(function () {
+			syncViewAll($(this));
+		});
+
 		$('.app-api-tab').on('click', function () {
 			var tab = $(this).data('tab');
 			$('.app-api-tab').removeClass('is-active');
@@ -285,6 +306,8 @@
 			$('#app-api-active-sections').append(orderItem(key, built.id, type));
 			$('#app-api-section-cards').append(built.card);
 			openAccordion(built.card);
+			built.card.find('.app-api-view-all-enabled').each(function () { syncViewAll($(this)); });
+			built.card.find('.app-api-action-type').each(function () { syncActionField($(this)); });
 			built.card.find('.app-api-items-sortable').sortable({
 				handle: '.app-api-item-drag',
 				placeholder: 'app-api-repeater-item ui-sortable-placeholder'
@@ -358,6 +381,10 @@
 		});
 		$(document).on('change', '.app-api-action-type', function () {
 			syncActionField($(this));
+		});
+
+		$(document).on('change', '.app-api-view-all-enabled', function () {
+			syncViewAll($(this));
 		});
 
 		$(document).on('input', '.app-api-image-item-title', function () {

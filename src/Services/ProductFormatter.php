@@ -332,10 +332,13 @@ final class ProductFormatter {
 	}
 
 	private function lookup_on_sale( \WC_Product $product, array $lookup ): bool {
-		if ( array_key_exists( 'onsale', $lookup ) && null !== $lookup['onsale'] ) {
-			return 1 === (int) $lookup['onsale'];
+		if ( array_key_exists( 'onsale', $lookup ) && 1 === (int) $lookup['onsale'] ) {
+			return true;
 		}
 
+		// Parent lookup rows are not reliable enough for every variable-product
+		// sale scenario. WC_Product_Variable::is_on_sale() also evaluates its
+		// published variation prices, so a discounted child is never missed.
 		return $product->is_on_sale();
 	}
 

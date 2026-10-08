@@ -18,13 +18,14 @@ final class SettingsPage {
 	}
 
 	public function menu(): void {
-		$this->page_hook = add_submenu_page(
-			'woocommerce',
+		$this->page_hook = add_menu_page(
 			__( 'Application API', 'application-api' ),
 			__( 'Application API', 'application-api' ),
-			'manage_woocommerce',
+			'manage_options',
 			'application-api',
-			array( $this, 'render' )
+			array( $this, 'render' ),
+			'dashicons-rest-api',
+			56
 		);
 	}
 
@@ -40,18 +41,6 @@ final class SettingsPage {
 
 		register_setting(
 			'app_api_settings',
-			Config::OPTION_HOME_CACHE,
-			array(
-				'type'              => 'integer',
-				'default'           => Config::DEFAULT_HOME_CACHE,
-				'sanitize_callback' => static function ( $value ) {
-					return min( DAY_IN_SECONDS, max( 0, absint( $value ) ) );
-				},
-			)
-		);
-
-		register_setting(
-			'app_api_settings',
 			Config::OPTION_HOME_ENDPOINT,
 			array(
 				'type'              => 'string',
@@ -59,30 +48,10 @@ final class SettingsPage {
 				'sanitize_callback' => array( $this, 'sanitize_home_endpoint' ),
 			)
 		);
-
-		register_setting(
-			'app_api_shop_settings',
-			Config::OPTION_PRODUCTS_ENDPOINT,
-			array(
-				'type'              => 'string',
-				'default'           => 'products',
-				'sanitize_callback' => array( $this, 'sanitize_products_endpoint' ),
-			)
-		);
-
-		register_setting(
-			'app_api_product_settings',
-			Config::OPTION_PRODUCT_ENDPOINT,
-			array(
-				'type'              => 'string',
-				'default'           => 'products',
-				'sanitize_callback' => array( $this, 'sanitize_product_endpoint' ),
-			)
-		);
 	}
 
 	public function enqueue_assets( string $hook ): void {
-		if ( $hook !== $this->page_hook && 'woocommerce_page_application-api' !== $hook ) {
+		if ( $hook !== $this->page_hook && 'toplevel_page_application-api' !== $hook ) {
 			return;
 		}
 
@@ -106,6 +75,7 @@ final class SettingsPage {
 					'products' => Config::default_layout_for_type( 'products' ),
 					'category' => Config::default_layout_for_type( 'category' ),
 					'brand'    => Config::default_layout_for_type( 'brand' ),
+					'posts'    => Config::default_layout_for_type( 'posts' ),
 				),
 			)
 		);
@@ -175,18 +145,33 @@ final class SettingsPage {
 
 			if ( 'products' === $type ) {
 				$per_page = absint( $section['per_page'] ?? 10 );
-				$clean['per_page']       = min( 50, max( 1, $per_page ?: 10 ) );
-				$clean['category']       = Request::ids( $section['category'] ?? array() );
-				$clean['brand']          = Request::ids( $section['brand'] ?? array() );
-				$clean['on_sale']        = ! empty( $section['on_sale'] );
-				$clean['view_all_title'] = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
-				$clean['view_all_action'] = $this->sanitize_action( $section['view_all_action'] ?? array(), $clean['view_all_title'] );
+				$clean['per_page']          = min( 50, max( 1, $per_page ?: 10 ) );
+				$clean['category']          = Request::ids( $section['category'] ?? array() );
+				$clean['brand']             = Request::ids( $section['brand'] ?? array() );
+				$clean['on_sale']           = ! empty( $section['on_sale'] );
+				$clean['view_all_enabled']  = ! empty( $section['view_all_enabled'] );
+				$clean['view_all_title']    = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
+				$clean['view_all_action']   = $this->sanitize_action( $section['view_all_action'] ?? array(), $clean['view_all_title'] );
 			}
 
 			if ( 'category' === $type || 'brand' === $type ) {
-				$clean['include'] = Request::ids( $section['include'] ?? array() );
-				$clean['view_all_title'] = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
-				$clean['view_all_action'] = $this->sanitize_action( $section['view_all_action'] ?? array(), $clean['view_all_title'] );
+				$clean['include']           = Request::ids( $section['include'] ?? array() );
+				$clean['view_all_enabled']  = ! empty( $section['view_all_enabled'] );
+				$clean['view_all_title']    = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
+				$clean['view_all_action']   = $this->sanitize_action( $section['view_all_action'] ?? array(), $clean['view_all_title'] );
+			}
+
+			if ( 'posts' === $type ) {
+				$per_page = absint( $section['per_page'] ?? 10 );
+				$clean['per_page']          = min( 50, max( 1, $per_page ?: 10 ) );
+				$clean['category']          = Request::ids( $section['category'] ?? array() );
+				$clean['view_all_enabled']  = ! empty( $section['view_all_enabled'] );
+				$clean['view_all_title']    = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
+				$clean['view_all_action']   = $this->sanitize_action( $section['view_all_action'] ?? array(), $clean['view_all_title'] );
+				$clean['view_all_action']['on_sale'] = null;
+				if ( ! in_array( $clean['view_all_action']['type'], array( 'category', 'url', null ), true ) ) {
+					$clean['view_all_action'] = Config::default_action( $clean['view_all_title'] );
+				}
 			}
 
 			$result['sections'][ $key ] = $clean;
@@ -285,27 +270,12 @@ final class SettingsPage {
 		return $slug;
 	}
 
-	public function sanitize_products_endpoint( $value ): string {
-		$current = Config::products_endpoint();
-		$slug    = Config::endpoint_slug( $value, 'products' );
-		if ( $slug === Config::home_endpoint() ) {
-			add_settings_error( 'application-api', 'products-endpoint-conflict', 'آدرس API فهرست محصولات نباید با آدرس API خانه یکسان باشد.', 'error' );
-			return $current;
-		}
-		return $slug;
-	}
-
-	public function sanitize_product_endpoint( $value ): string {
-		return Config::endpoint_slug( $value, 'products' );
-	}
-
 	public function render(): void {
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
-			return;
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'application-api' ) );
 		}
 
 		$config = Config::home_configuration();
-		$ttl    = (int) get_option( Config::OPTION_HOME_CACHE, Config::DEFAULT_HOME_CACHE );
 		?>
 		<div class="wrap app-api-admin-wrap" dir="rtl">
 			<div class="app-api-header">
@@ -319,9 +289,8 @@ final class SettingsPage {
 
 			<nav class="app-api-tabs" aria-label="صفحات API">
 				<button type="button" class="app-api-tab is-active" data-tab="home">خانه</button>
-				<button type="button" class="app-api-tab" data-tab="shop">فروشگاه</button>
+				<button type="button" class="app-api-tab" data-tab="products">محصولات</button>
 				<button type="button" class="app-api-tab" data-tab="categories">دسته‌بندی‌ها</button>
-				<button type="button" class="app-api-tab" data-tab="product">محصول</button>
 				<button type="button" class="app-api-tab" data-tab="account">حساب کاربری</button>
 			</nav>
 
@@ -343,13 +312,6 @@ final class SettingsPage {
 						<?php endforeach; ?>
 					</div>
 
-					<div class="app-api-card app-api-cache-card">
-						<div><h3>کش API خانه</h3><p>ذخیره تنظیمات، نسخه کش را نوسازی می‌کند تا تغییرات جدید در پاسخ API دیده شوند.</p></div>
-						<label>مدت کش (ثانیه)
-							<input name="<?php echo esc_attr( Config::OPTION_HOME_CACHE ); ?>" type="number" min="0" max="86400" value="<?php echo esc_attr( $ttl ); ?>">
-						</label>
-					</div>
-
 					<div class="app-api-save-bar">
 						<span>ترتیب بخش‌های فعال، دقیقاً ترتیب آرایه <code>sections</code> در API خانه خواهد بود.</span>
 						<?php submit_button( 'ذخیره تنظیمات', 'primary', 'submit', false ); ?>
@@ -357,20 +319,8 @@ final class SettingsPage {
 				</form>
 			</section>
 
-			<section class="app-api-tab-panel" data-panel="shop">
-				<form method="post" action="options.php" class="app-api-endpoint-form">
-					<?php settings_fields( 'app_api_shop_settings' ); ?>
-					<?php $this->render_endpoint_settings( 'فهرست محصولات', Config::OPTION_PRODUCTS_ENDPOINT, Config::products_endpoint(), '' ); ?>
-					<?php submit_button( 'ذخیره آدرس API' ); ?>
-				</form>
-			</section>
-
-			<section class="app-api-tab-panel" data-panel="product">
-				<form method="post" action="options.php" class="app-api-endpoint-form">
-					<?php settings_fields( 'app_api_product_settings' ); ?>
-					<?php $this->render_endpoint_settings( 'جزئیات محصول', Config::OPTION_PRODUCT_ENDPOINT, Config::product_endpoint(), '/{id}' ); ?>
-					<?php submit_button( 'ذخیره آدرس API' ); ?>
-				</form>
+			<section class="app-api-tab-panel" data-panel="products">
+				<?php $this->render_products_information(); ?>
 			</section>
 
 			<?php foreach ( array( 'categories' => 'دسته‌بندی‌ها', 'account' => 'حساب کاربری' ) as $key => $label ) : ?>
@@ -389,11 +339,62 @@ final class SettingsPage {
 		?>
 		<div class="app-api-card app-api-endpoint-card">
 			<div class="app-api-card-title">
-				<div><h2>آدرس API <?php echo esc_html( $label ); ?></h2><p>نام endpoint را با حروف انگلیسی، عدد، خط تیره یا زیرخط تعیین کن.</p></div>
+				<div><h2>آدرس API <?php echo esc_html( $label ); ?></h2><p>نام endpoint صفحه خانه را می‌توانی با حروف انگلیسی، عدد، خط تیره یا زیرخط تغییر بدهی.</p></div>
 			</div>
 			<div class="app-api-field-grid two-columns">
 				<label><span>نام endpoint</span><input type="text" dir="ltr" class="app-api-endpoint-slug" data-endpoint-suffix="<?php echo esc_attr( $suffix ); ?>" name="<?php echo esc_attr( $option_name ); ?>" value="<?php echo esc_attr( $endpoint ); ?>"></label>
 				<label><span>آدرس کامل API</span><input type="text" dir="ltr" class="app-api-endpoint-url" data-endpoint-base="<?php echo esc_attr( $base_url ); ?>" value="<?php echo esc_attr( $full_url ); ?>" readonly></label>
+			</div>
+		</div>
+		<?php
+	}
+
+	private function render_products_information(): void {
+		$list_url   = rest_url( Config::REST_NAMESPACE . '/products' );
+		$detail_url = $list_url . '/{id}';
+		?>
+		<div class="app-api-products-info">
+			<div class="app-api-card app-api-products-intro">
+				<div class="app-api-card-title"><div><h2>API محصولات</h2><p>این API برای فهرست محصولات، صفحه فروشگاه، جست‌وجوی محصولات و دریافت جزئیات یک محصول استفاده می‌شود. آدرس‌ها ثابت هستند و نیازی به تنظیم ندارند.</p></div></div>
+				<div class="app-api-endpoint-list">
+					<label><span>API فهرست محصولات</span><input type="text" dir="ltr" value="<?php echo esc_attr( $list_url ); ?>" readonly></label>
+					<label><span>API جزئیات محصول</span><input type="text" dir="ltr" value="<?php echo esc_attr( $detail_url ); ?>" readonly></label>
+				</div>
+			</div>
+
+			<div class="app-api-info-grid">
+				<div class="app-api-card app-api-info-card">
+					<h3>پارامترهای فهرست محصولات</h3>
+					<p>پارامترها از طریق آدرس درخواست ارسال می‌شوند و می‌توان چند مورد را هم‌زمان ترکیب کرد.</p>
+					<ul class="app-api-param-list">
+						<li><code>page</code><span>شماره صفحه؛ پیش‌فرض ۱</span></li>
+						<li><code>per_page</code><span>تعداد محصول در هر صفحه؛ پیش‌فرض <?php echo esc_html( Config::DEFAULT_PER_PAGE ); ?></span></li>
+						<li><code>search</code><span>جست‌وجو در عنوان محصول و شناسه کالا (SKU)</span></li>
+						<li><code>category</code><span>یک یا چند شناسه دسته‌بندی، جداشده با ویرگول</span></li>
+						<li><code>brand</code><span>یک یا چند شناسه برند، جداشده با ویرگول</span></li>
+						<li><code>min_price</code><span>حداقل قیمت</span></li>
+						<li><code>max_price</code><span>حداکثر قیمت</span></li>
+						<li><code>orderby</code><span>مرتب‌سازی؛ پیش‌فرض تاریخ</span></li>
+						<li><code>order</code><span>ترتیب صعودی یا نزولی؛ پیش‌فرض نزولی</span></li>
+					</ul>
+				</div>
+
+				<div class="app-api-card app-api-info-card">
+					<h3>فیلترهای همراه پاسخ</h3>
+					<p>در پاسخ فهرست محصولات، بخش <code>filters</code> گزینه‌های قابل نمایش برای فیلتر را آماده می‌کند:</p>
+					<ul class="app-api-bullet-list">
+						<li>دسته‌بندی‌های محصولات به‌صورت درختی، همراه با زیر‌دسته‌ها و ترتیب تعریف‌شده در فروشگاه.</li>
+						<li>برندها به ترتیب حروف الفبا.</li>
+						<li>ویژگی‌های سراسری که گزینه «بایگانی فعال شود؟» برای آن‌ها فعال است؛ گزینه‌های هر ویژگی نیز همراه آن برگردانده می‌شوند.</li>
+						<li>برای ویژگی‌های رنگی، در صورت ثبت کد رنگ در فروشگاه، کد رنگ نیز در خروجی قرار می‌گیرد.</li>
+					</ul>
+				</div>
+			</div>
+
+			<div class="app-api-card app-api-request-example">
+				<h3>نمونه درخواست</h3>
+				<code dir="ltr"><?php echo esc_html( $list_url . '?page=1&per_page=10&search=پردازنده&min_price=1000000&max_price=5000000' ); ?></code>
+				<p>بخش <code>filter_by</code> در پاسخ نشان می‌دهد همین درخواست با چه جست‌وجو، دسته‌بندی، برند، بازه قیمت و مرتب‌سازی اجرا شده است. در حالت پیش‌فرض همه این موارد خالی هستند و فقط مرتب‌سازی روی تاریخ و ترتیب نزولی قرار دارد.</p>
 			</div>
 		</div>
 		<?php
@@ -475,7 +476,7 @@ final class SettingsPage {
 			</summary>
 			<div class="app-api-section-body app-api-accordion-body">
 				<div class="app-api-field-grid four-columns">
-					<label><span>ID دلخواه بخش</span><input type="text" dir="ltr" class="app-api-section-id-input" name="<?php echo esc_attr( $name ); ?>[id]" value="<?php echo esc_attr( $section['id'] ); ?>" placeholder="مثلاً amazing_offers"><small>فقط حروف انگلیسی، عدد، خط تیره و زیرخط</small></label>
+					<label><span>شناسه دلخواه بخش</span><input type="text" dir="ltr" class="app-api-section-id-input" name="<?php echo esc_attr( $name ); ?>[id]" value="<?php echo esc_attr( $section['id'] ); ?>" placeholder="مثلاً amazing_offers"><small>فقط حروف انگلیسی، عدد، خط تیره و زیرخط</small></label>
 					<label><span>نوع بخش</span><input type="text" dir="ltr" class="app-api-section-type-display" value="<?php echo esc_attr( $type ); ?>" readonly><input type="hidden" class="app-api-section-type-select" name="<?php echo esc_attr( $name ); ?>[type]" value="<?php echo esc_attr( $type ); ?>"><small>نوع این بخش ثابت است.</small></label>
 					<label><span>عنوان بخش</span><input type="text" class="app-api-section-title-input" name="<?php echo esc_attr( $name ); ?>[title]" value="<?php echo esc_attr( $section['title'] ?? '' ); ?>" placeholder="عنوان قابل نمایش"></label>
 					<label><span>زیرعنوان بخش</span><input type="text" name="<?php echo esc_attr( $name ); ?>[subtitle]" value="<?php echo esc_attr( $section['subtitle'] ?? '' ); ?>" placeholder="متن کوتاه زیر عنوان"></label>
@@ -493,6 +494,7 @@ final class SettingsPage {
 				<div class="app-api-type-panel" data-type-panel="products" <?php echo 'products' !== $type ? 'hidden' : ''; ?>><?php $this->render_products_settings( $name, $section ); ?></div>
 				<div class="app-api-type-panel" data-type-panel="category" <?php echo 'category' !== $type ? 'hidden' : ''; ?>><?php $this->render_terms_settings( $name, $section, 'category' ); ?></div>
 				<div class="app-api-type-panel" data-type-panel="brand" <?php echo 'brand' !== $type ? 'hidden' : ''; ?>><?php $this->render_terms_settings( $name, $section, 'brand' ); ?></div>
+				<div class="app-api-type-panel" data-type-panel="posts" <?php echo 'posts' !== $type ? 'hidden' : ''; ?>><?php $this->render_posts_settings( $name, $section ); ?></div>
 				<div class="app-api-type-panel" data-type-panel="image" <?php echo 'image' !== $type ? 'hidden' : ''; ?>><?php $this->render_repeater( $key, $section['data'] ?? array(), $name ); ?></div>
 			</div>
 		</details>
@@ -500,8 +502,9 @@ final class SettingsPage {
 	}
 
 	private function render_products_settings( string $name, array $section ): void {
-		$view_all_title  = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
-		$view_all_action = isset( $section['view_all_action'] ) && is_array( $section['view_all_action'] )
+		$view_all_enabled = array_key_exists( 'view_all_enabled', $section ) ? ! empty( $section['view_all_enabled'] ) : true;
+		$view_all_title   = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
+		$view_all_action  = isset( $section['view_all_action'] ) && is_array( $section['view_all_action'] )
 			? $section['view_all_action']
 			: array();
 		?>
@@ -509,37 +512,59 @@ final class SettingsPage {
 			<div class="app-api-subcard-heading"><div><h4>منبع و فیلتر محصولات</h4><p>چند دسته یا چند برند در هر فیلد با رابطه «یا» و دسته با برند با رابطه «و» فیلتر می‌شوند.</p></div></div>
 			<div class="app-api-field-grid three-columns">
 				<label><span>تعداد نمایش (per_page)</span><input type="number" min="1" max="50" name="<?php echo esc_attr( $name ); ?>[per_page]" value="<?php echo esc_attr( $section['per_page'] ?? 10 ); ?>" placeholder="پیش‌فرض 10"></label>
-				<label><span>آیدی دسته‌بندی‌ها</span><input type="text" dir="ltr" name="<?php echo esc_attr( $name ); ?>[category]" value="<?php echo esc_attr( implode( ',', Request::ids( $section['category'] ?? array() ) ) ); ?>" placeholder="مثلاً 166,350"></label>
-				<label><span>آیدی برندها</span><input type="text" dir="ltr" name="<?php echo esc_attr( $name ); ?>[brand]" value="<?php echo esc_attr( implode( ',', Request::ids( $section['brand'] ?? array() ) ) ); ?>" placeholder="مثلاً 313,362"></label>
+				<label><span>شناسه دسته‌بندی‌ها</span><input type="text" dir="ltr" name="<?php echo esc_attr( $name ); ?>[category]" value="<?php echo esc_attr( implode( ',', Request::ids( $section['category'] ?? array() ) ) ); ?>" placeholder="مثلاً 166,350"></label>
+				<label><span>شناسه برندها</span><input type="text" dir="ltr" name="<?php echo esc_attr( $name ); ?>[brand]" value="<?php echo esc_attr( implode( ',', Request::ids( $section['brand'] ?? array() ) ) ); ?>" placeholder="مثلاً 313,362"></label>
 			</div>
 			<label class="app-api-check app-api-sale-check"><input type="checkbox" name="<?php echo esc_attr( $name ); ?>[on_sale]" value="1" <?php checked( ! empty( $section['on_sale'] ) ); ?>> فقط محصولات تخفیف‌دار نمایش داده شوند</label>
 			<p class="description">اگر دسته‌بندی و برند خالی باشند، محصولات کل فروشگاه نمایش داده می‌شوند.</p>
 		</div>
-		<?php $this->render_view_all_settings( $name, $view_all_title, $view_all_action ); ?>
+		<?php $this->render_view_all_settings( $name, $view_all_title, $view_all_action, $view_all_enabled ); ?>
 		<?php
 	}
 
 	private function render_terms_settings( string $name, array $section, string $type ): void {
-		$is_brand       = 'brand' === $type;
-		$view_all_title = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
-		$view_all_action = isset( $section['view_all_action'] ) && is_array( $section['view_all_action'] )
+		$is_brand         = 'brand' === $type;
+		$view_all_enabled = array_key_exists( 'view_all_enabled', $section ) ? ! empty( $section['view_all_enabled'] ) : true;
+		$view_all_title   = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
+		$view_all_action  = isset( $section['view_all_action'] ) && is_array( $section['view_all_action'] )
 			? $section['view_all_action']
 			: array();
 		?>
 		<div class="app-api-subcard">
 			<div class="app-api-subcard-heading"><div><h4><?php echo $is_brand ? 'برندهای انتخابی' : 'دسته‌بندی‌های انتخابی'; ?></h4><p>فقط شناسه‌هایی که وارد می‌کنی و دقیقاً با همان ترتیب در API نمایش داده می‌شوند.</p></div></div>
-			<label><span><?php echo $is_brand ? 'آیدی برندها به ترتیب نمایش' : 'آیدی دسته‌بندی‌ها به ترتیب نمایش'; ?></span><input type="text" dir="ltr" name="<?php echo esc_attr( $name ); ?>[include]" value="<?php echo esc_attr( implode( ',', Request::ids( $section['include'] ?? array() ) ) ); ?>" placeholder="مثلاً 55,166,350"></label>
+			<label><span><?php echo $is_brand ? 'شناسه برندها به ترتیب نمایش' : 'شناسه دسته‌بندی‌ها به ترتیب نمایش'; ?></span><input type="text" dir="ltr" name="<?php echo esc_attr( $name ); ?>[include]" value="<?php echo esc_attr( implode( ',', Request::ids( $section['include'] ?? array() ) ) ); ?>" placeholder="مثلاً 55,166,350"></label>
 		</div>
-		<?php $this->render_view_all_settings( $name, $view_all_title, $view_all_action ); ?>
+		<?php $this->render_view_all_settings( $name, $view_all_title, $view_all_action, $view_all_enabled ); ?>
 		<?php
 	}
 
-	private function render_view_all_settings( string $section_name, string $title, array $action ): void {
+	private function render_posts_settings( string $name, array $section ): void {
+		$view_all_enabled = array_key_exists( 'view_all_enabled', $section ) ? ! empty( $section['view_all_enabled'] ) : true;
+		$view_all_title   = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
+		$view_all_action  = isset( $section['view_all_action'] ) && is_array( $section['view_all_action'] )
+			? $section['view_all_action']
+			: array();
+		?>
+		<div class="app-api-subcard">
+			<div class="app-api-subcard-heading"><div><h4>منبع و فیلتر نوشته‌ها</h4><p>اگر شناسه دسته‌بندی وارد نشود، جدیدترین نوشته‌های منتشرشده از همه دسته‌بندی‌ها نمایش داده می‌شوند.</p></div></div>
+			<div class="app-api-field-grid two-columns">
+				<label><span>تعداد نمایش (per_page)</span><input type="number" min="1" max="50" name="<?php echo esc_attr( $name ); ?>[per_page]" value="<?php echo esc_attr( $section['per_page'] ?? 10 ); ?>" placeholder="پیش‌فرض 10"></label>
+				<label><span>شناسه دسته‌بندی‌های نوشته</span><input type="text" dir="ltr" name="<?php echo esc_attr( $name ); ?>[category]" value="<?php echo esc_attr( implode( ',', Request::ids( $section['category'] ?? array() ) ) ); ?>" placeholder="مثلاً 4,9,12"></label>
+			</div>
+		</div>
+		<?php $this->render_view_all_settings( $name, $view_all_title, $view_all_action, $view_all_enabled, array( 'category', 'url' ), false ); ?>
+		<?php
+	}
+
+	private function render_view_all_settings( string $section_name, string $title, array $action, bool $enabled = true, ?array $allowed_types = null, bool $allow_on_sale = true ): void {
 		?>
 		<div class="app-api-subcard app-api-view-all-settings">
-			<div class="app-api-subcard-heading"><div><h4>تنظیمات مشاهده همه</h4><p>این action فقط برای آیتم پایانی <code>view_all</code> ساخته می‌شود و داخل تک‌تک آیتم‌های لیست قرار نمی‌گیرد.</p></div></div>
-			<label class="app-api-view-all-title"><span>عنوان مشاهده همه</span><input type="text" name="<?php echo esc_attr( $section_name ); ?>[view_all_title]" value="<?php echo esc_attr( $title ); ?>"></label>
-			<?php $this->render_action_editor( $section_name . '[view_all_action]', $action, $title ); ?>
+			<div class="app-api-subcard-heading"><div><h4>مشاهده همه</h4><p>در صورت غیرفعال بودن، مقدار <code>view_all</code> در API به‌صورت یک شیء خالی برگردانده می‌شود.</p></div></div>
+			<label class="app-api-check app-api-view-all-toggle"><input type="checkbox" class="app-api-view-all-enabled" name="<?php echo esc_attr( $section_name ); ?>[view_all_enabled]" value="1" <?php checked( $enabled ); ?>> فعال کردن مشاهده همه</label>
+			<div class="app-api-view-all-fields" <?php echo $enabled ? '' : 'hidden'; ?>>
+				<label class="app-api-view-all-title"><span>عنوان مشاهده همه</span><input type="text" name="<?php echo esc_attr( $section_name ); ?>[view_all_title]" value="<?php echo esc_attr( $title ); ?>"></label>
+				<?php $this->render_action_editor( $section_name . '[view_all_action]', $action, $title, $allowed_types, $allow_on_sale ); ?>
+			</div>
 		</div>
 		<?php
 	}
@@ -582,18 +607,24 @@ final class SettingsPage {
 		<?php
 	}
 
-	private function render_action_editor( string $name, array $action, string $title ): void {
+	private function render_action_editor( string $name, array $action, string $title, ?array $allowed_types = null, bool $allow_on_sale = true ): void {
 		$action       = Config::normalize_action( $action, $title );
 		$action_type  = $action['type'] ?: 'none';
+		if ( is_array( $allowed_types ) && 'none' !== $action_type && ! in_array( $action_type, $allowed_types, true ) ) {
+			$action_type = 'none';
+			$action['destination_id'] = null;
+			$action['url'] = null;
+			$action['on_sale'] = null;
+		}
 		$destination  = 'url' === $action_type ? (string) ( $action['url'] ?? '' ) : (string) ( $action['destination_id'] ?? '' );
 		$is_identifier = in_array( $action_type, array( 'product', 'category', 'brand' ), true );
 		$is_url        = 'url' === $action_type;
-		$is_sale_type  = in_array( $action_type, array( 'category', 'brand' ), true );
+		$is_sale_type  = $allow_on_sale && in_array( $action_type, array( 'category', 'brand' ), true );
 		$label         = $is_url ? 'لینک مقصد' : ( $is_identifier ? 'شناسه مقصد' : 'بدون مقصد' );
 		?>
-		<div class="app-api-action-editor app-api-action-fields" data-action-title="<?php echo esc_attr( $title ); ?>">
+		<div class="app-api-action-editor app-api-action-fields" data-action-title="<?php echo esc_attr( $title ); ?>" data-allow-sale="<?php echo $allow_on_sale ? '1' : '0'; ?>">
 			<div class="app-api-field-grid four-columns">
-				<label><span>نوع مقصد</span><select name="<?php echo esc_attr( $name ); ?>[type]" class="app-api-action-type"><?php $this->render_action_options( $action_type ); ?></select></label>
+				<label><span>نوع مقصد</span><select name="<?php echo esc_attr( $name ); ?>[type]" class="app-api-action-type"><?php $this->render_action_options( $action_type, $allowed_types ); ?></select></label>
 				<label class="app-api-destination-field"><span class="app-api-destination-label"><?php echo esc_html( $label ); ?></span><input type="text" dir="ltr" class="app-api-action-destination" name="<?php echo esc_attr( $name ); ?>[destination]" value="<?php echo esc_attr( $destination ); ?>" <?php disabled( ! $is_identifier && ! $is_url ); ?>></label>
 				<label><span>مرتب‌سازی</span><select name="<?php echo esc_attr( $name ); ?>[orderby]" class="app-api-action-orderby"><?php $this->render_action_orderby_options( (string) $action['orderby'] ); ?></select></label>
 				<label><span>ترتیب</span><select name="<?php echo esc_attr( $name ); ?>[order]"><option value="desc" <?php selected( $action['order'], 'desc' ); ?>>نزولی</option><option value="asc" <?php selected( $action['order'], 'asc' ); ?>>صعودی</option></select></label>
@@ -603,7 +634,7 @@ final class SettingsPage {
 		<?php
 	}
 
-	private function render_action_options( string $selected ): void {
+	private function render_action_options( string $selected, ?array $allowed_types = null ): void {
 		$options = array(
 			'none'     => 'بدون عملیات',
 			'product'  => 'محصول',
@@ -611,6 +642,13 @@ final class SettingsPage {
 			'brand'    => 'برند',
 			'url'      => 'لینک',
 		);
+		if ( is_array( $allowed_types ) ) {
+			$allowed = array_merge( array( 'none' ), array_map( 'sanitize_key', $allowed_types ) );
+			$options = array_intersect_key( $options, array_fill_keys( $allowed, true ) );
+		}
+		if ( ! isset( $options[ $selected ] ) ) {
+			$selected = 'none';
+		}
 		foreach ( $options as $value => $label ) {
 			printf( '<option value="%1$s" %2$s>%3$s</option>', esc_attr( $value ), selected( $selected, $value, false ), esc_html( $label ) );
 		}

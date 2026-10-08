@@ -21,7 +21,7 @@ final class HomeController {
 			return Response::woocommerce_unavailable();
 		}
 
-		$ttl       = max( 0, (int) get_option( Config::OPTION_HOME_CACHE, Config::DEFAULT_HOME_CACHE ) );
+		$ttl       = Config::DEFAULT_HOME_CACHE;
 		$key       = Cache::home_key();
 		$payload   = $ttl > 0 ? get_transient( $key ) : false;
 		$cache_hit = is_array( $payload );

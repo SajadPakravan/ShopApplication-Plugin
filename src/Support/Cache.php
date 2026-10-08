@@ -30,7 +30,7 @@ final class Cache {
 	}
 
 	public static function bump_for_product_term( $term_id = 0, $term_taxonomy_id = 0, $taxonomy = '' ): void {
-		if ( $taxonomy && is_object_in_taxonomy( 'product', $taxonomy ) ) {
+		if ( $taxonomy && ( is_object_in_taxonomy( 'product', $taxonomy ) || 'category' === $taxonomy ) ) {
 			self::bump_home_version();
 		}
 	}
