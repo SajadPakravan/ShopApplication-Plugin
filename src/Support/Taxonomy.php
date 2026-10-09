@@ -58,21 +58,29 @@ final class Taxonomy {
 	 * use other term-meta keys, so the resolver accepts the common formats too.
 	 */
 	public static function term_image_url( \WP_Term $term ): string {
-		if ( 'product_brand' === $term->taxonomy && function_exists( 'wc_get_brand_thumbnail_url' ) ) {
+		// Native WooCommerce Brands stores the logo attachment in thumbnail_id.
+		if ( function_exists( 'wc_get_brand_thumbnail_url' ) ) {
 			$url = wc_get_brand_thumbnail_url( (int) $term->term_id, 'full' );
+			if ( $url ) {
+				return self::original_image_from_url( (string) $url );
+			}
+		}
+		if ( function_exists( 'get_brand_thumbnail_url' ) ) {
+			$url = get_brand_thumbnail_url( (int) $term->term_id, 'full' );
 			if ( $url ) {
 				return self::original_image_from_url( (string) $url );
 			}
 		}
 
 		$keys = array(
-			'thumbnail_id', 'image_id', 'brand_image_id', 'product_brand_image_id',
-			'pwb_brand_image', 'yith_wcbr_image', 'berocket_term_thumbnail_id',
-			'logo_id', 'logo', 'image', 'brand_logo', 'brand_image',
+			'thumbnail_id', '_thumbnail_id', 'image_id', 'brand_image_id', 'brand_logo_id',
+			'product_brand_image_id', 'pwb_brand_image', 'pwb_brand_logo', 'yith_wcbr_image',
+			'berocket_term_thumbnail_id', 'logo_id', 'logo', 'image', 'term_image',
+			'brand_logo', 'brand_image', 'woodmart_image', 'woodmart_brand_image',
 		);
 
 		foreach ( $keys as $key ) {
-			$url = self::image_value_url( get_term_meta( $term->term_id, $key, true ) );
+			$url = self::image_value_url( maybe_unserialize( get_term_meta( $term->term_id, $key, true ) ) );
 			if ( $url ) {
 				return $url;
 			}
@@ -80,14 +88,26 @@ final class Taxonomy {
 
 		$all_meta = get_term_meta( $term->term_id );
 		foreach ( $all_meta as $key => $values ) {
-			if ( ! preg_match( '/(?:image|thumbnail|logo)/i', (string) $key ) ) {
+			if ( ! preg_match( '/(?:image|thumbnail|logo|brand)/i', (string) $key ) ) {
 				continue;
 			}
-			foreach ( (array) $values as $value ) {
-				$url = self::image_value_url( maybe_unserialize( $value ) );
-				if ( $url ) {
-					return $url;
-				}
+			$url = self::image_value_url( array_map( 'maybe_unserialize', (array) $values ) );
+			if ( $url ) {
+				return $url;
+			}
+		}
+
+		// Some older taxonomy/brand plugins store term fields in an option array.
+		$option_keys = array(
+			$term->taxonomy . '_' . $term->term_id,
+			'taxonomy_' . $term->term_id,
+			'brand_' . $term->term_id,
+			'product_brand_' . $term->term_id,
+		);
+		foreach ( $option_keys as $option_key ) {
+			$url = self::image_value_url( get_option( $option_key, null ) );
+			if ( $url ) {
+				return $url;
 			}
 		}
 
@@ -133,26 +153,40 @@ final class Taxonomy {
 	}
 
 	private static function image_value_url( $value ): string {
+		$value = maybe_unserialize( $value );
+
 		if ( is_numeric( $value ) && (int) $value > 0 ) {
 			return self::attachment_image_url( (int) $value );
 		}
 
-		if ( is_string( $value ) && filter_var( $value, FILTER_VALIDATE_URL ) ) {
-			return self::original_image_from_url( $value );
+		if ( is_string( $value ) ) {
+			$value = trim( $value );
+			if ( filter_var( $value, FILTER_VALIDATE_URL ) ) {
+				return self::original_image_from_url( $value );
+			}
+			if ( preg_match( '/https?:\/\/[^\s"\']+/i', $value, $match ) ) {
+				return self::original_image_from_url( $match[0] );
+			}
+		}
+
+		if ( is_object( $value ) ) {
+			$value = (array) $value;
 		}
 
 		if ( is_array( $value ) ) {
-			foreach ( array( 'id', 'attachment_id', 'image_id' ) as $id_key ) {
-				if ( ! empty( $value[ $id_key ] ) ) {
-					$url = self::attachment_image_url( absint( $value[ $id_key ] ) );
+			$priority = array( 'id', 'ID', 'attachment_id', 'image_id', 'thumbnail_id', 'logo_id', 'url', 'image', 'src', 'logo' );
+			foreach ( $priority as $key ) {
+				if ( array_key_exists( $key, $value ) ) {
+					$url = self::image_value_url( $value[ $key ] );
 					if ( $url ) {
 						return $url;
 					}
 				}
 			}
-			foreach ( array( 'url', 'image', 'src' ) as $url_key ) {
-				if ( ! empty( $value[ $url_key ] ) && filter_var( $value[ $url_key ], FILTER_VALIDATE_URL ) ) {
-					return self::original_image_from_url( (string) $value[ $url_key ] );
+			foreach ( $value as $nested ) {
+				$url = self::image_value_url( $nested );
+				if ( $url ) {
+					return $url;
 				}
 			}
 		}

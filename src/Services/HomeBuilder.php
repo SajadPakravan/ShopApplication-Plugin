@@ -80,24 +80,35 @@ final class HomeBuilder {
 				return $base;
 
 			case 'products':
-				$product_result   = $this->products( $section );
-				$base['data']      = $product_result['data'];
-				$base['view_all']  = $product_result['view_all'];
+				$product_result = $this->products( $section );
+				$base['data']   = $product_result['data'];
+				if ( isset( $product_result['view_all'] ) ) {
+					$base['view_all'] = $product_result['view_all'];
+				}
 				return $base;
 
 			case 'category':
-				$base['data']     = $this->categories( $section );
-				$base['view_all'] = $this->view_all( $section );
+				$base['data'] = $this->categories( $section );
+				$view_all = $this->view_all( $section );
+				if ( null !== $view_all ) {
+					$base['view_all'] = $view_all;
+				}
 				return $base;
 
 			case 'brand':
-				$base['data']     = $this->brands( $section );
-				$base['view_all'] = $this->view_all( $section );
+				$base['data'] = $this->brands( $section );
+				$view_all = $this->view_all( $section );
+				if ( null !== $view_all ) {
+					$base['view_all'] = $view_all;
+				}
 				return $base;
 
 			case 'posts':
-				$base['data']     = $this->posts( $section );
-				$base['view_all'] = $this->view_all( $section );
+				$base['data'] = $this->posts( $section );
+				$view_all = $this->view_all( $section );
+				if ( null !== $view_all ) {
+					$base['view_all'] = $view_all;
+				}
 				return $base;
 		}
 
@@ -179,13 +190,36 @@ final class HomeBuilder {
 			$data[]     = $this->formatter->format_card( $product, $query['lookup'][ $product_id ] ?? array() );
 		}
 
-		return array(
-			'data'     => $data,
-			'view_all' => $this->view_all( $section ),
-		);
+		$result = array( 'data' => $data );
+		$view_all = $this->view_all( $section );
+		if ( null !== $view_all ) {
+			$result['view_all'] = $view_all;
+		}
+		return $result;
 	}
 
 	private function categories( array $section ): array {
+		$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
+		if ( 'parent' === $source ) {
+			$parent_id = absint( $section['parent_category'] ?? 0 );
+			if ( ! $parent_id ) {
+				return array();
+			}
+
+			$terms = get_terms(
+				array(
+					'taxonomy'   => 'product_cat',
+					'hide_empty' => false,
+					'parent'     => $parent_id,
+					'meta_key'   => 'order',
+					'orderby'    => 'meta_value_num',
+					'order'      => 'ASC',
+				)
+			);
+
+			return $this->format_terms( $terms );
+		}
+
 		$include = Request::ids( $section['include'] ?? array() );
 		if ( ! $include ) {
 			$include = $this->resolve_term_ids( 'product_cat', $section['include_names'] ?? array(), $section['include_slugs'] ?? array() );
@@ -285,7 +319,7 @@ final class HomeBuilder {
 				'title'   => get_the_title( $post ),
 				'excerpt' => wp_strip_all_tags( $excerpt ),
 				'image'   => $thumbnail_id ? Taxonomy::attachment_image_url( (int) $thumbnail_id ) : '',
-				'date'    => get_post_time( DATE_ATOM, false, $post, true ),
+				'date'    => substr( (string) $post->post_date, 0, 10 ),
 			);
 		}
 
@@ -412,23 +446,20 @@ final class HomeBuilder {
 		return $url ? esc_url_raw( $url ) : '';
 	}
 
-	private function view_all( array $section ) {
+	private function view_all( array $section ): ?array {
 		if ( array_key_exists( 'view_all_enabled', $section ) && empty( $section['view_all_enabled'] ) ) {
-			return new \stdClass();
+			return null;
 		}
 
 		$title  = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
 		$action = isset( $section['view_all_action'] ) && is_array( $section['view_all_action'] )
 			? $section['view_all_action']
 			: array();
-		$resolved = $this->resolve_action( $action, $title );
-		if ( 'posts' === ( $section['type'] ?? '' ) ) {
-			$resolved['on_sale'] = null;
-			if ( ! in_array( $resolved['type'], array( 'category', 'url', null ), true ) ) {
-				$resolved['type'] = null;
-				$resolved['destination_id'] = null;
-				$resolved['url'] = null;
-			}
+		$type = sanitize_key( (string) ( $section['type'] ?? '' ) );
+		$resolved = Config::normalize_view_all_action( $type, $action, $title );
+
+		if ( 'posts' === $type ) {
+			unset( $resolved['on_sale'] );
 		}
 
 		return array(

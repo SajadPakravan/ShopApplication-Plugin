@@ -75,6 +75,7 @@ final class ProductController {
 				'brand'     => $params['brand'],
 				'min_price' => $params['min_price'],
 				'max_price' => $params['max_price'],
+				'on_sale'   => $params['on_sale'],
 				'orderby'   => $params['orderby'],
 				'order'     => $params['order'],
 			),
@@ -134,8 +135,6 @@ final class ProductController {
 			'per_page'   => $per_page,
 			'search'     => sanitize_text_field( (string) $request->get_param( 'search' ) ),
 			'type'       => null,
-			// on_sale remains a supported request parameter for view-all actions,
-			// but is intentionally not repeated in the lightweight filter_by object.
 			'on_sale'    => Request::nullable_boolean( $request->get_param( 'on_sale' ) ),
 			'category'   => Request::ids( $this->canonical_or_legacy_param( $request, 'category', 'categories' ) ),
 			'brand'      => Request::ids( $this->canonical_or_legacy_param( $request, 'brand', 'brands' ) ),

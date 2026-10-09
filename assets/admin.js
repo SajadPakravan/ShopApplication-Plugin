@@ -59,7 +59,6 @@
 
 	function actionOptions() {
 		var options = {
-			none: 'بدون عملیات',
 			product: 'محصول',
 			category: 'دسته‌بندی',
 			brand: 'برند',
@@ -101,7 +100,7 @@
 			'<div class="app-api-action-editor app-api-action-fields">' +
 			'<div class="app-api-field-grid four-columns">' +
 			'<label><span>نوع مقصد</span><select name="' + actionBase + '[type]" class="app-api-action-type">' + actionOptions() + '</select></label>' +
-			'<label class="app-api-destination-field"><span class="app-api-destination-label">بدون مقصد</span><input type="text" dir="ltr" class="app-api-action-destination" name="' + actionBase + '[destination]" value="" disabled></label>' +
+			'<label class="app-api-destination-field"><span class="app-api-destination-label">شناسه مقصد</span><input type="text" dir="ltr" class="app-api-action-destination" name="' + actionBase + '[destination]" value="" inputmode="numeric" placeholder="مثلاً 350"></label>' +
 			'<label><span>مرتب‌سازی</span><select name="' + actionBase + '[orderby]" class="app-api-action-orderby">' + actionOrderbyOptions() + '</select></label>' +
 			'<label><span>ترتیب</span><select name="' + actionBase + '[order]"><option value="desc">نزولی</option><option value="asc">صعودی</option></select></label>' +
 			'</div>' +
@@ -110,8 +109,9 @@
 	}
 
 	function syncActionField($select) {
-		var type = String($select.val() || 'none');
+		var type = String($select.val() || 'product');
 		var $container = $select.closest('.app-api-action-fields');
+		var $field = $container.find('.app-api-destination-field').first();
 		var $label = $container.find('.app-api-destination-label').first();
 		var $input = $container.find('.app-api-action-destination').first();
 		var $saleField = $container.find('.app-api-action-sale-field').first();
@@ -119,15 +119,20 @@
 		var identifierType = ['product', 'category', 'brand'].indexOf(type) !== -1;
 		var saleType = String($container.attr('data-allow-sale') || '1') !== '0' && ['category', 'brand'].indexOf(type) !== -1;
 
-		if (type === 'url') {
+		if (type === 'all') {
+			$field.prop('hidden', true);
+			$input.val('').prop('disabled', true);
+		} else if (type === 'url') {
+			$field.prop('hidden', false);
 			$label.text('لینک مقصد');
 			$input.prop('disabled', false).attr({ placeholder: 'https://example.com/...', inputmode: 'url' });
 		} else if (identifierType) {
+			$field.prop('hidden', false);
 			$label.text('شناسه مقصد');
-			$input.prop('disabled', false).attr({ placeholder: 'مثلاً 350', inputmode: 'numeric' });
+			$input.prop('disabled', false).attr({ placeholder: 'خالی = همه موارد این نوع', inputmode: 'numeric' });
 		} else {
-			$label.text('بدون مقصد');
-			$input.val('').prop('disabled', true).attr({ placeholder: '', inputmode: 'text' });
+			$field.prop('hidden', true);
+			$input.val('').prop('disabled', true);
 		}
 
 		if (saleType) {
@@ -137,6 +142,21 @@
 			$saleInput.prop('checked', false).prop('disabled', true);
 			$saleField.prop('hidden', true);
 		}
+	}
+
+	function syncCategorySelector($select) {
+		var source = String($select.val() || 'custom');
+		var $container = $select.closest('[data-category-selector]');
+		var $custom = $container.find('.app-api-custom-category-field').first();
+		var $parent = $container.find('.app-api-parent-category-field').first();
+		var $help = $container.find('.app-api-parent-category-help').first();
+		var useParent = source === 'parent';
+
+		$custom.prop('hidden', useParent);
+		$custom.find(':input').prop('disabled', useParent);
+		$parent.prop('hidden', !useParent);
+		$parent.find(':input').prop('disabled', !useParent);
+		$help.prop('hidden', !useParent);
 	}
 
 	function syncViewAll($checkbox) {
@@ -285,6 +305,10 @@
 			syncActionField($(this));
 		});
 
+		$('.app-api-category-source').each(function () {
+			syncCategorySelector($(this));
+		});
+
 		$('.app-api-view-all-enabled').each(function () {
 			syncViewAll($(this));
 		});
@@ -308,6 +332,7 @@
 			openAccordion(built.card);
 			built.card.find('.app-api-view-all-enabled').each(function () { syncViewAll($(this)); });
 			built.card.find('.app-api-action-type').each(function () { syncActionField($(this)); });
+			built.card.find('.app-api-category-source').each(function () { syncCategorySelector($(this)); });
 			built.card.find('.app-api-items-sortable').sortable({
 				handle: '.app-api-item-drag',
 				placeholder: 'app-api-repeater-item ui-sortable-placeholder'
@@ -381,6 +406,10 @@
 		});
 		$(document).on('change', '.app-api-action-type', function () {
 			syncActionField($(this));
+		});
+
+		$(document).on('change', '.app-api-category-source', function () {
+			syncCategorySelector($(this));
 		});
 
 		$(document).on('change', '.app-api-view-all-enabled', function () {

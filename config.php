@@ -52,7 +52,7 @@ final class Config {
 	 * Destination types supported by every public action object.
 	 */
 	public static function allowed_action_types(): array {
-		return array( 'product', 'category', 'brand', 'url' );
+		return array( 'all', 'product', 'category', 'brand', 'url' );
 	}
 
 	/**
@@ -62,10 +62,15 @@ final class Config {
 		return array( 'date', 'price', 'popularity', 'rating', 'cout_sales' );
 	}
 
-	public static function default_action( string $title = '' ): array {
+	public static function default_action( string $title = '', ?string $type = null ): array {
+		$type = null === $type ? null : sanitize_key( $type );
+		if ( $type && ! in_array( $type, self::allowed_action_types(), true ) ) {
+			$type = null;
+		}
+
 		return array(
 			'title'          => sanitize_text_field( $title ),
-			'type'           => null,
+			'type'           => $type,
 			'destination_id' => null,
 			'on_sale'        => null,
 			'url'            => null,
@@ -76,13 +81,11 @@ final class Config {
 
 	/**
 	 * Normalizes current and legacy action data to one stable JSON contract.
-	 * The title is deliberately supplied by the owning item/view-all block and
-	 * cannot drift away from the visible title.
 	 */
 	public static function normalize_action( $action, string $title = '' ): array {
 		$action = is_array( $action ) ? $action : array();
 		$type   = sanitize_key( (string) ( $action['type'] ?? $action['action_type'] ?? '' ) );
-		if ( 'none' === $type || ! in_array( $type, self::allowed_action_types(), true ) ) {
+		if ( ! in_array( $type, self::allowed_action_types(), true ) ) {
 			$type = '';
 		}
 
@@ -108,6 +111,10 @@ final class Config {
 			if ( in_array( $type, array( 'category', 'brand' ), true ) ) {
 				$on_sale = ! empty( $action['on_sale'] ) || ! empty( $action['action_on_sale'] );
 			}
+		} elseif ( 'all' === $type ) {
+			$destination_id = null;
+			$url            = null;
+			$on_sale        = null;
 		}
 
 		$orderby = sanitize_key( (string) ( $action['orderby'] ?? $action['action_orderby'] ?? 'date' ) );
@@ -132,6 +139,40 @@ final class Config {
 			'orderby'        => $orderby,
 			'order'          => $order,
 		);
+	}
+
+	/**
+	 * Applies section-specific view-all rules.
+	 */
+	public static function normalize_view_all_action( string $section_type, $action, string $title = '' ): array {
+		$section_type = sanitize_key( $section_type );
+		$resolved     = self::normalize_action( $action, $title );
+
+		switch ( $section_type ) {
+			case 'products':
+				if ( ! in_array( $resolved['type'], array( 'all', 'category', 'brand' ), true ) ) {
+					$resolved = self::default_action( $title, 'all' );
+				}
+				break;
+
+			case 'category':
+			case 'brand':
+				$orderby = $resolved['orderby'];
+				$order   = $resolved['order'];
+				$resolved = self::default_action( $title, 'all' );
+				$resolved['orderby'] = $orderby;
+				$resolved['order']   = $order;
+				break;
+
+			case 'posts':
+				if ( ! in_array( $resolved['type'], array( 'all', 'category' ), true ) ) {
+					$resolved = self::default_action( $title, 'all' );
+				}
+				$resolved['on_sale'] = null;
+				break;
+		}
+
+		return $resolved;
 	}
 
 	public static function home_configuration(): array {
@@ -173,18 +214,22 @@ final class Config {
 			$section['per_page']         = 10;
 			$section['view_all_enabled'] = true;
 			$section['view_all_title']   = 'مشاهده همه';
-			$section['view_all_action']  = self::default_action( 'مشاهده همه' );
+			$section['view_all_action']  = self::default_action( 'مشاهده همه', 'all' );
 		} elseif ( 'category' === $type || 'brand' === $type ) {
 			$section['include']          = array();
+			if ( 'category' === $type ) {
+				$section['category_source'] = 'custom';
+				$section['parent_category'] = 0;
+			}
 			$section['view_all_enabled'] = true;
 			$section['view_all_title']   = 'مشاهده همه';
-			$section['view_all_action']  = self::default_action( 'مشاهده همه' );
+			$section['view_all_action']  = self::default_action( 'مشاهده همه', 'all' );
 		} elseif ( 'posts' === $type ) {
 			$section['category']         = array();
 			$section['per_page']         = 10;
 			$section['view_all_enabled'] = true;
 			$section['view_all_title']   = 'مشاهده همه';
-			$section['view_all_action']  = self::default_action( 'مشاهده همه' );
+			$section['view_all_action']  = self::default_action( 'مشاهده همه', 'all' );
 		}
 
 		return $section;
@@ -278,7 +323,7 @@ final class Config {
 					(string) ( $section['view_all_title'] ?? ( $section['view_all']['title'] ?? 'مشاهده همه' ) )
 				) ?: 'مشاهده همه';
 				$view_all_action = $section['view_all_action'] ?? ( $section['view_all']['action'] ?? array() );
-				$clean['view_all_action'] = self::normalize_action( $view_all_action, $clean['view_all_title'] );
+				$clean['view_all_action'] = self::normalize_view_all_action( $type, $view_all_action, $clean['view_all_title'] );
 
 				// Keep old name/slug fallbacks until the administrator saves exact IDs.
 				$clean['category_names'] = isset( $section['category_names'] ) && is_array( $section['category_names'] ) ? array_values( $section['category_names'] ) : array();
@@ -290,6 +335,11 @@ final class Config {
 			if ( 'category' === $type || 'brand' === $type ) {
 				$config = isset( $section['config'] ) && is_array( $section['config'] ) ? $section['config'] : array();
 				$clean['include'] = self::ids( $section['include'] ?? ( $config['include'] ?? array() ) );
+				if ( 'category' === $type ) {
+					$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
+					$clean['category_source'] = in_array( $source, array( 'custom', 'parent' ), true ) ? $source : 'custom';
+					$clean['parent_category'] = absint( $section['parent_category'] ?? 0 );
+				}
 				$clean['include_names'] = isset( $config['include_names'] ) && is_array( $config['include_names'] ) ? array_values( $config['include_names'] ) : array();
 				$clean['include_slugs'] = isset( $config['include_slugs'] ) && is_array( $config['include_slugs'] ) ? array_values( $config['include_slugs'] ) : array();
 				$clean['view_all_enabled'] = array_key_exists( 'view_all_enabled', $section ) ? ! empty( $section['view_all_enabled'] ) : true;
@@ -297,7 +347,7 @@ final class Config {
 					(string) ( $section['view_all_title'] ?? ( $section['view_all']['title'] ?? 'مشاهده همه' ) )
 				) ?: 'مشاهده همه';
 				$view_all_action = $section['view_all_action'] ?? ( $section['view_all']['action'] ?? array() );
-				$clean['view_all_action'] = self::normalize_action( $view_all_action, $clean['view_all_title'] );
+				$clean['view_all_action'] = self::normalize_view_all_action( $type, $view_all_action, $clean['view_all_title'] );
 			}
 
 
@@ -310,8 +360,7 @@ final class Config {
 					(string) ( $section['view_all_title'] ?? ( $section['view_all']['title'] ?? 'مشاهده همه' ) )
 				) ?: 'مشاهده همه';
 				$view_all_action = $section['view_all_action'] ?? ( $section['view_all']['action'] ?? array() );
-				$clean['view_all_action'] = self::normalize_action( $view_all_action, $clean['view_all_title'] );
-				$clean['view_all_action']['on_sale'] = null;
+				$clean['view_all_action'] = self::normalize_view_all_action( $type, $view_all_action, $clean['view_all_title'] );
 			}
 
 			$sections[ $key ] = $clean;
@@ -354,12 +403,17 @@ final class Config {
 				}
 			}
 
+			$resolved_action = self::normalize_action( $action, $title );
+			if ( ! in_array( $resolved_action['type'], array( 'product', 'category', 'brand', 'url' ), true ) ) {
+				$resolved_action = self::default_action( $title, 'product' );
+			}
+
 			$result[] = array(
 				'title'         => $title,
 				'subtitle'      => sanitize_text_field( (string) ( $item['subtitle'] ?? '' ) ),
 				'attachment_id' => absint( $item['attachment_id'] ?? 0 ),
 				'image'         => esc_url_raw( (string) ( $item['image'] ?? '' ) ),
-				'action'        => self::normalize_action( $action, $title ),
+				'action'        => $resolved_action,
 			);
 		}
 

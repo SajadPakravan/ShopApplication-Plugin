@@ -135,17 +135,14 @@ final class ProductFilterBuilder {
 					continue;
 				}
 				$options[] = array(
-					'id'    => (int) $term->term_id,
-					'name'  => (string) $term->name,
-					'value' => (string) $term->slug,
-					'color' => $this->term_color( $term, $taxonomy ),
+					'id'   => (int) $term->term_id,
+					'name' => (string) $term->name,
 				);
 			}
 
 			$result[] = array(
 				'id'      => (int) $attribute->attribute_id,
 				'name'    => (string) $attribute->attribute_label,
-				'slug'    => (string) $attribute->attribute_name,
 				'options' => $options,
 			);
 		}
@@ -184,70 +181,4 @@ final class ProductFilterBuilder {
 		return is_wp_error( $terms ) || ! is_array( $terms ) ? array() : $terms;
 	}
 
-	private function term_color( \WP_Term $term, string $taxonomy ): ?string {
-		$visual_class = '\\Automattic\\WooCommerce\\Internal\\ProductAttributes\\VisualAttributeTermMeta';
-		if ( class_exists( $visual_class ) && is_callable( array( $visual_class, 'is_visual_attribute_taxonomy' ) ) && is_callable( array( $visual_class, 'get_term_visual' ) ) ) {
-			try {
-				if ( $visual_class::is_visual_attribute_taxonomy( $taxonomy ) ) {
-					$color = $this->find_hex_color( $visual_class::get_term_visual( (int) $term->term_id ) );
-					if ( $color ) {
-						return $color;
-					}
-				}
-			} catch ( \Throwable $exception ) {
-				// Fall through to generic term-meta discovery for older/newer stores.
-			}
-		}
-
-		$preferred_keys = array(
-			'color', 'colour', 'term_color', 'swatch_color', 'attribute_color',
-			'product_attribute_color', 'woodmart_attribute_color', 'wd_color',
-			'woodmart_color', 'wvs_color', 'woo_variation_swatches_color',
-		);
-		foreach ( $preferred_keys as $key ) {
-			$color = $this->find_hex_color( get_term_meta( $term->term_id, $key, true ) );
-			if ( $color ) {
-				return $color;
-			}
-		}
-
-		foreach ( (array) get_term_meta( $term->term_id ) as $key => $values ) {
-			if ( ! preg_match( '/(?:color|colour|swatch)/i', (string) $key ) ) {
-				continue;
-			}
-			$color = $this->find_hex_color( array_map( 'maybe_unserialize', (array) $values ) );
-			if ( $color ) {
-				return $color;
-			}
-		}
-
-		return null;
-	}
-
-	private function find_hex_color( $value ): ?string {
-		if ( is_array( $value ) || is_object( $value ) ) {
-			foreach ( (array) $value as $item ) {
-				$found = $this->find_hex_color( $item );
-				if ( $found ) {
-					return $found;
-				}
-			}
-			return null;
-		}
-
-		if ( ! is_scalar( $value ) ) {
-			return null;
-		}
-
-		$text = trim( (string) $value );
-		if ( preg_match( '/#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-fA-F])/', $text, $match ) ) {
-			$hex = strtoupper( $match[0] );
-			if ( 4 === strlen( $hex ) ) {
-				$hex = '#' . $hex[1] . $hex[1] . $hex[2] . $hex[2] . $hex[3] . $hex[3];
-			}
-			return $hex;
-		}
-
-		return null;
-	}
 }
