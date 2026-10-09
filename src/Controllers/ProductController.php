@@ -51,7 +51,7 @@ final class ProductController {
 
 		foreach ( $result['products'] as $product ) {
 			$product_id = $product->get_id();
-			$data[]     = $this->formatter->format_card( $product, $result['lookup'][ $product_id ] ?? array() );
+			$data[]     = $this->formatter->format_list_item( $product, $result['lookup'][ $product_id ] ?? array() );
 		}
 
 		$total_site_products = wp_count_posts( 'product' );
@@ -71,8 +71,9 @@ final class ProductController {
 			'filters'    => $this->filters->build(),
 			'filter_by'  => array(
 				'search'    => '' !== $params['search'] ? $params['search'] : null,
-				'category'  => $params['category'],
-				'brand'     => $params['brand'],
+				'categories' => $params['category'],
+				'brands'     => $params['brand'],
+				'attributes' => $params['attributes'],
 				'min_price' => $params['min_price'],
 				'max_price' => $params['max_price'],
 				'on_sale'   => $params['on_sale'],
@@ -138,6 +139,7 @@ final class ProductController {
 			'on_sale'    => Request::nullable_boolean( $request->get_param( 'on_sale' ) ),
 			'category'   => Request::ids( $this->canonical_or_legacy_param( $request, 'category', 'categories' ) ),
 			'brand'      => Request::ids( $this->canonical_or_legacy_param( $request, 'brand', 'brands' ) ),
+			'attributes' => Request::attributes( $request->get_param( 'attributes' ) ),
 			'tag'        => array(),
 			'min_price'  => null === $min_price || '' === $min_price ? null : max( 0, (float) $min_price ),
 			'max_price'  => null === $max_price || '' === $max_price ? null : max( 0, (float) $max_price ),

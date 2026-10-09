@@ -175,6 +175,7 @@ final class HomeBuilder {
 			'on_sale'   => $on_sale ? true : null,
 			'category'  => $category_ids,
 			'brand'     => $brand_ids,
+			'attributes'=> array(),
 			'tag'       => array(),
 			'min_price' => null,
 			'max_price' => null,
@@ -319,7 +320,7 @@ final class HomeBuilder {
 				'title'   => get_the_title( $post ),
 				'excerpt' => wp_strip_all_tags( $excerpt ),
 				'image'   => $thumbnail_id ? Taxonomy::attachment_image_url( (int) $thumbnail_id ) : '',
-				'date'    => substr( (string) $post->post_date, 0, 10 ),
+				'date'    => $this->jalali_date( (string) $post->post_date ),
 			);
 		}
 
@@ -515,6 +516,63 @@ final class HomeBuilder {
 		return $term instanceof \WP_Term ? $term : null;
 	}
 
+
+
+	/**
+	 * Converts the post's local Gregorian date to Solar Hijri (Jalali) YYYY-MM-DD.
+	 * Only the date is exposed; time is intentionally omitted.
+	 */
+	private function jalali_date( string $date ): string {
+		$gregorian = substr( trim( $date ), 0, 10 );
+		$parts     = array_map( 'intval', explode( '-', $gregorian ) );
+		if ( 3 !== count( $parts ) || $parts[0] < 1 || $parts[1] < 1 || $parts[1] > 12 || $parts[2] < 1 || $parts[2] > 31 ) {
+			return '';
+		}
+
+		list( $jy, $jm, $jd ) = $this->gregorian_to_jalali( $parts[0], $parts[1], $parts[2] );
+		return sprintf( '%04d-%02d-%02d', $jy, $jm, $jd );
+	}
+
+	private function gregorian_to_jalali( int $gy, int $gm, int $gd ): array {
+		$g_day_no = array( 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 );
+
+		if ( $gy > 1600 ) {
+			$jy = 979;
+			$gy -= 1600;
+		} else {
+			$jy = 0;
+			$gy -= 621;
+		}
+
+		$gy2  = $gm > 2 ? $gy + 1 : $gy;
+		$days = 365 * $gy
+			+ intdiv( $gy2 + 3, 4 )
+			- intdiv( $gy2 + 99, 100 )
+			+ intdiv( $gy2 + 399, 400 )
+			- 80
+			+ $gd
+			+ $g_day_no[ $gm - 1 ];
+
+		$jy   += 33 * intdiv( $days, 12053 );
+		$days %= 12053;
+		$jy   += 4 * intdiv( $days, 1461 );
+		$days %= 1461;
+
+		if ( $days > 365 ) {
+			$jy   += intdiv( $days - 1, 365 );
+			$days  = ( $days - 1 ) % 365;
+		}
+
+		if ( $days < 186 ) {
+			$jm = 1 + intdiv( $days, 31 );
+			$jd = 1 + ( $days % 31 );
+		} else {
+			$jm = 7 + intdiv( $days - 186, 30 );
+			$jd = 1 + ( ( $days - 186 ) % 30 );
+		}
+
+		return array( $jy, $jm, $jd );
+	}
 
 
 	private function api_id( string $id, string $fallback ): string {

@@ -9,9 +9,9 @@ defined( 'ABSPATH' ) || exit;
 final class ProductFilterBuilder {
 	public function build(): array {
 		return array(
-			'category'  => $this->categories(),
-			'brand'     => $this->brands(),
-			'attribute' => $this->attributes(),
+			'categories' => $this->categories(),
+			'brands'     => $this->brands(),
+			'attributes' => $this->attributes(),
 		);
 	}
 
@@ -108,41 +108,28 @@ final class ProductFilterBuilder {
 	 * automatically includes attributes added later.
 	 */
 	private function attributes(): array {
-		if ( ! function_exists( 'wc_get_attribute_taxonomies' ) ) {
-			return array();
-		}
+		$result = array();
 
-		$attributes = wc_get_attribute_taxonomies();
-		$result     = array();
+		foreach ( Taxonomy::filterable_attributes() as $attribute ) {
+			$taxonomy = (string) $attribute['taxonomy'];
+			$terms    = $this->attribute_terms( $taxonomy, (string) $attribute['orderby'] );
+			$options  = array();
 
-		foreach ( (array) $attributes as $attribute ) {
-			if ( ! is_object( $attribute ) || empty( $attribute->attribute_public ) ) {
-				continue;
-			}
-
-			$taxonomy = function_exists( 'wc_attribute_taxonomy_name' )
-				? wc_attribute_taxonomy_name( (string) $attribute->attribute_name )
-				: 'pa_' . sanitize_title( (string) $attribute->attribute_name );
-
-			if ( ! taxonomy_exists( $taxonomy ) ) {
-				continue;
-			}
-
-			$terms = $this->attribute_terms( $taxonomy, (string) ( $attribute->attribute_orderby ?? 'menu_order' ) );
-			$options = array();
 			foreach ( $terms as $term ) {
 				if ( ! $term instanceof \WP_Term ) {
 					continue;
 				}
 				$options[] = array(
-					'id'   => (int) $term->term_id,
-					'name' => (string) $term->name,
+					'id'    => (int) $term->term_id,
+					'name'  => (string) $term->name,
+					'color' => Taxonomy::term_color( $term ),
+					'image' => Taxonomy::term_image_url( $term ),
 				);
 			}
 
 			$result[] = array(
-				'id'      => (int) $attribute->attribute_id,
-				'name'    => (string) $attribute->attribute_label,
+				'id'      => (int) $attribute['id'],
+				'name'    => (string) $attribute['name'],
 				'options' => $options,
 			);
 		}

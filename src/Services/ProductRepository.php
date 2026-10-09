@@ -214,6 +214,31 @@ final class ProductRepository {
 			}
 		}
 
+
+		if ( ! empty( $params['attributes'] ) ) {
+			$filterable_attributes = Taxonomy::filterable_attributes();
+			foreach ( $params['attributes'] as $attribute_filter ) {
+				$attribute_id = absint( $attribute_filter['id'] ?? 0 );
+				$options      = array_values( array_filter( array_map( 'absint', (array) ( $attribute_filter['options'] ?? array() ) ) ) );
+				if ( ! $attribute_id || ! $options || empty( $filterable_attributes[ $attribute_id ] ) ) {
+					continue;
+				}
+
+				$taxonomy = (string) $filterable_attributes[ $attribute_id ]['taxonomy'];
+				if ( ! taxonomy_exists( $taxonomy ) ) {
+					continue;
+				}
+
+				// Selected options inside one attribute are OR; separate attributes are AND.
+				$queries[] = array(
+					'taxonomy' => $taxonomy,
+					'field'    => 'term_id',
+					'terms'    => $options,
+					'operator' => 'IN',
+				);
+			}
+		}
+
 		if ( $params['type'] ) {
 			$queries[] = array(
 				'taxonomy' => 'product_type',

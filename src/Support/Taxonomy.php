@@ -30,6 +30,80 @@ final class Taxonomy {
 		return null;
 	}
 
+	/**
+	 * Archive-enabled global WooCommerce attributes available to storefront filters.
+	 * The result is keyed by numeric WooCommerce attribute ID.
+	 */
+	public static function filterable_attributes(): array {
+		static $cache = null;
+		if ( null !== $cache ) {
+			return $cache;
+		}
+
+		$cache = array();
+		if ( ! function_exists( 'wc_get_attribute_taxonomies' ) ) {
+			return $cache;
+		}
+
+		foreach ( (array) wc_get_attribute_taxonomies() as $attribute ) {
+			if ( ! is_object( $attribute ) || empty( $attribute->attribute_public ) ) {
+				continue;
+			}
+
+			$id       = absint( $attribute->attribute_id ?? 0 );
+			$name     = (string) ( $attribute->attribute_name ?? '' );
+			$taxonomy = function_exists( 'wc_attribute_taxonomy_name' )
+				? wc_attribute_taxonomy_name( $name )
+				: 'pa_' . sanitize_title( $name );
+
+			if ( ! $id || ! $name || ! taxonomy_exists( $taxonomy ) ) {
+				continue;
+			}
+
+			$cache[ $id ] = array(
+				'id'       => $id,
+				'name'     => (string) ( $attribute->attribute_label ?? $name ),
+				'taxonomy' => $taxonomy,
+				'orderby'  => (string) ( $attribute->attribute_orderby ?? 'menu_order' ),
+			);
+		}
+
+		return $cache;
+	}
+
+	/**
+	 * Finds a swatch color stored by common WooCommerce attribute/swatch plugins.
+	 * Empty string is returned when the term has no color metadata.
+	 */
+	public static function term_color( \WP_Term $term ): string {
+		$keys = array(
+			'color', '_color', 'colour', '_colour', 'swatch_color', 'swatch_colour',
+			'product_attribute_color', 'attribute_color', 'wvs_color', 'woo_variation_swatches_color',
+			'woodmart_color', 'wd_color', 'term_color', 'pa_color',
+		);
+
+		foreach ( $keys as $key ) {
+			$color = self::color_value( maybe_unserialize( get_term_meta( $term->term_id, $key, true ) ) );
+			if ( $color ) {
+				return $color;
+			}
+		}
+
+		foreach ( get_term_meta( $term->term_id ) as $key => $values ) {
+			if ( ! preg_match( '/colou?r|swatch/i', (string) $key ) ) {
+				continue;
+			}
+			foreach ( (array) $values as $value ) {
+				$color = self::color_value( maybe_unserialize( $value ) );
+				if ( $color ) {
+					return $color;
+				}
+			}
+		}
+
+		return '';
+	}
+
 	public static function terms( int $product_id, string $taxonomy ): array {
 		if ( ! taxonomy_exists( $taxonomy ) ) {
 			return array();
@@ -58,17 +132,21 @@ final class Taxonomy {
 	 * use other term-meta keys, so the resolver accepts the common formats too.
 	 */
 	public static function term_image_url( \WP_Term $term ): string {
-		// Native WooCommerce Brands stores the logo attachment in thumbnail_id.
-		if ( function_exists( 'wc_get_brand_thumbnail_url' ) ) {
-			$url = wc_get_brand_thumbnail_url( (int) $term->term_id, 'full' );
-			if ( $url ) {
-				return self::original_image_from_url( (string) $url );
+		// Brand-specific helpers must only be called for the active brand taxonomy;
+		// term IDs are not globally unique across taxonomies.
+		$brand_taxonomy = self::brand_taxonomy();
+		if ( $brand_taxonomy && $term->taxonomy === $brand_taxonomy ) {
+			if ( function_exists( 'wc_get_brand_thumbnail_url' ) ) {
+				$url = wc_get_brand_thumbnail_url( (int) $term->term_id, 'full' );
+				if ( $url ) {
+					return self::original_image_from_url( (string) $url );
+				}
 			}
-		}
-		if ( function_exists( 'get_brand_thumbnail_url' ) ) {
-			$url = get_brand_thumbnail_url( (int) $term->term_id, 'full' );
-			if ( $url ) {
-				return self::original_image_from_url( (string) $url );
+			if ( function_exists( 'get_brand_thumbnail_url' ) ) {
+				$url = get_brand_thumbnail_url( (int) $term->term_id, 'full' );
+				if ( $url ) {
+					return self::original_image_from_url( (string) $url );
+				}
 			}
 		}
 
@@ -189,6 +267,41 @@ final class Taxonomy {
 					return $url;
 				}
 			}
+		}
+
+		return '';
+	}
+
+
+	private static function color_value( $value ): string {
+		$value = maybe_unserialize( $value );
+
+		if ( is_object( $value ) ) {
+			$value = (array) $value;
+		}
+
+		if ( is_array( $value ) ) {
+			foreach ( array( 'color', 'colour', 'value', 'hex', 'swatch_color' ) as $key ) {
+				if ( array_key_exists( $key, $value ) ) {
+					$color = self::color_value( $value[ $key ] );
+					if ( $color ) {
+						return $color;
+					}
+				}
+			}
+			return '';
+		}
+
+		if ( ! is_string( $value ) ) {
+			return '';
+		}
+
+		$value = trim( $value );
+		if ( preg_match( '/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i', $value ) ) {
+			return strtolower( $value );
+		}
+		if ( preg_match( '/^(?:rgb|rgba|hsl|hsla)\([^\r\n]+\)$/i', $value ) ) {
+			return sanitize_text_field( $value );
 		}
 
 		return '';

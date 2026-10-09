@@ -1,135 +1,57 @@
-# Application API v2.3.1
+# Application API v2.3.2
 
-Base namespace:
+## Products
 
-`/wp-json/app-api/v1`
+`GET /wp-json/app-api/v1/products`
 
-## Endpoints
-
-- Home: `/home` by default; the Home endpoint can be changed from the Home settings tab.
-- Product list: `/products` (fixed).
-- Product detail: `/products/{id}` (fixed).
-
-## Product list query parameters
-
-`GET /products` supports:
+Supported query parameters:
 
 - `page`
 - `per_page`
 - `search`
-- `category` — one ID or comma-separated IDs
-- `brand` — one ID or comma-separated IDs
+- `category` (one ID or comma-separated IDs)
+- `brand` (one ID or comma-separated IDs)
+- `attributes` (attribute/option filters)
 - `min_price`
 - `max_price`
-- `on_sale` — `true` / `false`; omitted means no sale-status filter
+- `on_sale`
 - `orderby`
 - `order`
+
+Recommended attribute query syntax:
+
+```text
+?attributes[1]=118,119&attributes[18]=209,238
+```
+
+Within the same attribute, selected option IDs use OR semantics. Separate attributes use AND semantics.
 
 The response contains:
 
 - `pagination`
-- `filters`
-  - `category`: hierarchical product-category tree with nested `children`
-  - `brand`: alphabetical brand list with count and image when a brand image is stored by WooCommerce/the active brand plugin
-  - `attribute`: public/global WooCommerce attributes; each attribute contains only `id`, `name`, and `options`, while each option contains only `id` and `name`
-- `filter_by`: values applied to the current request
-- `data`: lightweight product cards
+- `filters.categories`
+- `filters.brands`
+- `filters.attributes`
+- `filter_by`
+- `data`
 
-`filter_by` has this stable shape:
-
-```json
-{
-  "search": null,
-  "category": [],
-  "brand": [],
-  "min_price": null,
-  "max_price": null,
-  "on_sale": null,
-  "orderby": "date",
-  "order": "desc"
-}
-```
-
-## Home section types
-
-The visual Home builder supports:
-
-- `image`
-- `products`
-- `category`
-- `brand`
-- `posts`
-
-Every section has an administrator-defined section ID, title/subtitle and layout:
+`filter_by.attributes` uses this shape:
 
 ```json
-{
-  "direction": "horizontal",
-  "rows": 1,
-  "columns": 1
-}
+[
+  {"id": 1, "options": [118, 119]},
+  {"id": 18, "options": [209, 238]}
+]
 ```
 
-### Category section source
+Each product-list item contains the compact card fields plus `total_sales`, numeric `average_rating`, `category`, `brand`, and filterable `attributes`. Category/brand objects and attribute option objects expose only `id` and `name`.
 
-A category section supports two source modes:
+## Product detail
 
-1. Custom IDs: explicitly entered category IDs are returned in the entered order.
-2. Parent category: the administrator selects one top-level product category and the section returns all direct child categories of that parent in the store-defined order.
+`GET /wp-json/app-api/v1/products/{id}`
 
-### Posts section
+## Home
 
-A `posts` section can select one or more WordPress post-category IDs and a `per_page` value. If category IDs are empty, posts from all categories are considered. Posts are returned newest first.
+`GET /wp-json/app-api/v1/{configured-home-endpoint}`
 
-```json
-{
-  "id": 123,
-  "title": "Article title",
-  "excerpt": "...",
-  "image": "https://example.com/original-image.webp",
-  "date": "2026-08-08"
-}
-```
-
-## View all
-
-`products`, `category`, `brand`, and `posts` sections have a View All toggle.
-
-When View All is disabled, the `view_all` key is completely omitted from that section.
-
-When enabled:
-
-- Products: destination types are `all`, `category`, `brand`.
-- Category: destination type is fixed to `all` (all product categories).
-- Brand: destination type is fixed to `all` (all brands).
-- Posts: destination types are `all`, `category`.
-
-For category/brand destinations, an empty `destination_id` means all categories/brands of that destination type. For post-category destinations, an empty `destination_id` means all post categories.
-
-## Action contract
-
-Actions appear only in image items and enabled section-level `view_all` objects.
-
-Image items support `product`, `category`, `brand`, and `url`; there is no "no action" option.
-
-General action example:
-
-```json
-{
-  "title": "لپ‌تاپ",
-  "type": "category",
-  "destination_id": 55,
-  "on_sale": false,
-  "url": null,
-  "orderby": "date",
-  "order": "desc"
-}
-```
-
-For `type = all`, `destination_id` and `url` are `null`.
-
-For post-section `view_all` actions, the `on_sale` key is omitted because it is not applicable to posts.
-
-## Home cache
-
-The Home response is cached internally for 60 seconds. The TTL is fixed in the plugin and is not exposed in administrator settings. Relevant content/configuration changes invalidate the versioned cache so Home can be rebuilt after changes.
+Post-section dates are returned as Solar Hijri dates in `YYYY-MM-DD` format with no time component.

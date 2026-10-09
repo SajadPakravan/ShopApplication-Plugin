@@ -361,7 +361,7 @@ final class SettingsPage {
 		?>
 		<div class="app-api-products-info">
 			<div class="app-api-card app-api-products-intro">
-				<div class="app-api-card-title"><div><h2>API محصولات</h2><p>این API برای فهرست محصولات، صفحه فروشگاه، جست‌وجوی محصولات و دریافت جزئیات یک محصول استفاده می‌شود. آدرس‌ها ثابت هستند و نیازی به تنظیم ندارند.</p></div></div>
+				<div class="app-api-card-title"><div><h2>API محصولات</h2><p>این API برای فهرست محصولات، صفحه محصولات، جست‌وجو، فیلتر و دریافت جزئیات یک محصول استفاده می‌شود. آدرس‌ها ثابت هستند و نیازی به تنظیم ندارند.</p></div></div>
 				<div class="app-api-endpoint-list">
 					<label><span>API فهرست محصولات</span><input type="text" dir="ltr" value="<?php echo esc_attr( $list_url ); ?>" readonly></label>
 					<label><span>API جزئیات محصول</span><input type="text" dir="ltr" value="<?php echo esc_attr( $detail_url ); ?>" readonly></label>
@@ -371,37 +371,45 @@ final class SettingsPage {
 			<div class="app-api-info-grid">
 				<div class="app-api-card app-api-info-card">
 					<h3>پارامترهای فهرست محصولات</h3>
-					<p>پارامترها از طریق آدرس درخواست ارسال می‌شوند و می‌توان چند مورد را هم‌زمان ترکیب کرد.</p>
+					<p>پارامترها از طریق آدرس درخواست ارسال می‌شوند و می‌توان چند فیلتر را هم‌زمان ترکیب کرد.</p>
 					<ul class="app-api-param-list">
 						<li><code>page</code><span>شماره صفحه؛ پیش‌فرض ۱</span></li>
 						<li><code>per_page</code><span>تعداد محصول در هر صفحه؛ پیش‌فرض <?php echo esc_html( Config::DEFAULT_PER_PAGE ); ?></span></li>
 						<li><code>search</code><span>جست‌وجو در عنوان محصول و شناسه کالا (SKU)</span></li>
 						<li><code>category</code><span>یک یا چند شناسه دسته‌بندی، جداشده با ویرگول</span></li>
 						<li><code>brand</code><span>یک یا چند شناسه برند، جداشده با ویرگول</span></li>
+						<li><code>attributes</code><span>فیلتر ویژگی‌ها؛ گزینه‌های یک ویژگی با هم «یا» و ویژگی‌های مختلف با هم «و» در نظر گرفته می‌شوند.</span></li>
 						<li><code>min_price</code><span>حداقل قیمت</span></li>
 						<li><code>max_price</code><span>حداکثر قیمت</span></li>
-						<li><code>on_sale</code><span>اگر true باشد فقط محصولات تخفیف‌دار نمایش داده می‌شوند؛ اگر ارسال نشود همه محصولات بررسی می‌شوند</span></li>
-						<li><code>orderby</code><span>مرتب‌سازی؛ پیش‌فرض تاریخ</span></li>
+						<li><code>on_sale</code><span>با مقدار true فقط محصولات تخفیف‌دار و با false فقط محصولات بدون تخفیف نمایش داده می‌شوند.</span></li>
+						<li><code>orderby</code><span>نوع مرتب‌سازی؛ پیش‌فرض تاریخ</span></li>
 						<li><code>order</code><span>ترتیب صعودی یا نزولی؛ پیش‌فرض نزولی</span></li>
 					</ul>
 				</div>
 
 				<div class="app-api-card app-api-info-card">
-					<h3>فیلترهای همراه پاسخ</h3>
-					<p>در پاسخ فهرست محصولات، بخش <code>filters</code> گزینه‌های قابل نمایش برای فیلتر را آماده می‌کند:</p>
+					<h3>اطلاعات فیلتر و فیلتر محلی</h3>
+					<p>پاسخ API سه لیست <code>categories</code>، <code>brands</code> و <code>attributes</code> را داخل <code>filters</code> برمی‌گرداند تا رابط فیلتر از روی اطلاعات خود فروشگاه ساخته شود.</p>
 					<ul class="app-api-bullet-list">
-						<li>دسته‌بندی‌های محصولات به‌صورت درختی، همراه با زیر‌دسته‌ها و ترتیب تعریف‌شده در فروشگاه.</li>
-						<li>برندها به ترتیب حروف الفبا.</li>
-						<li>ویژگی‌های سراسری که گزینه «بایگانی فعال شود؟» برای آن‌ها فعال است؛ گزینه‌های هر ویژگی نیز همراه آن برگردانده می‌شوند.</li>
-						<li>برای ویژگی‌های رنگی، در صورت ثبت کد رنگ در فروشگاه، کد رنگ نیز در خروجی قرار می‌گیرد.</li>
+						<li>دسته‌بندی‌ها به‌صورت درختی و همراه زیر‌دسته‌ها برگردانده می‌شوند.</li>
+						<li>برندها به ترتیب حروف الفبا قرار می‌گیرند.</li>
+						<li>فقط ویژگی‌های سراسری که «بایگانی فعال شود؟» برای آن‌ها فعال است در فیلترها قرار می‌گیرند.</li>
+						<li>هر گزینه ویژگی دارای شناسه، نام، رنگ و تصویر است؛ اگر رنگ یا تصویر ثبت نشده باشد مقدار آن خالی است.</li>
+						<li>هر محصول در فهرست، علاوه بر اطلاعات کارت، <code>total_sales</code>، <code>average_rating</code>، دسته‌بندی، برند و ویژگی‌های شناسه‌محور را هم برمی‌گرداند تا بتوان فیلتر و شمارش نتایج را به‌صورت محلی انجام داد.</li>
 					</ul>
 				</div>
 			</div>
 
 			<div class="app-api-card app-api-request-example">
-				<h3>نمونه درخواست</h3>
-				<code dir="ltr"><?php echo esc_html( $list_url . '?page=1&per_page=10&search=پردازنده&min_price=1000000&max_price=5000000' ); ?></code>
-				<p>بخش <code>filter_by</code> در پاسخ نشان می‌دهد همین درخواست با چه جست‌وجو، دسته‌بندی، برند، بازه قیمت، وضعیت تخفیف و مرتب‌سازی اجرا شده است. در حالت پیش‌فرض فیلترها خالی هستند، <code>on_sale</code> مقدار null دارد و مرتب‌سازی روی تاریخ با ترتیب نزولی است.</p>
+				<h3>نمونه فیلتر ویژگی‌ها</h3>
+				<p>مثلاً برای انتخاب دو گزینه از ویژگی شماره ۱ و دو گزینه از ویژگی شماره ۱۸:</p>
+				<code dir="ltr"><?php echo esc_html( $list_url . '?attributes[1]=118,119&attributes[18]=209,238' ); ?></code>
+				<p>در <code>filter_by.attributes</code> همین انتخاب‌ها به شکل آرایه‌ای از شناسه ویژگی و شناسه گزینه‌ها برگردانده می‌شوند. در <code>filter_by</code> نام کلیدهای دسته‌بندی و برند نیز به‌ترتیب <code>categories</code> و <code>brands</code> است.</p>
+			</div>
+
+			<div class="app-api-card app-api-request-example">
+				<h3>نمونه درخواست ترکیبی</h3>
+				<code dir="ltr"><?php echo esc_html( $list_url . '?page=1&per_page=20&search=پردازنده&category=55&brand=313&attributes[1]=118,119&min_price=1000000&max_price=5000000&on_sale=true&orderby=date&order=desc' ); ?></code>
 			</div>
 		</div>
 		<?php

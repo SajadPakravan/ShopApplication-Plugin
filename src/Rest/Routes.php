@@ -80,6 +80,9 @@ final class Routes {
 			'brand' => array(
 				'description' => 'One brand ID, a comma-separated list, or an array of brand IDs.',
 			),
+			'attributes' => array(
+				'description' => 'Attribute filters. Example: attributes[1]=118,119&attributes[18]=209,238.',
+			),
 			'min_price' => array(
 				'type'    => 'number',
 				'minimum' => 0,

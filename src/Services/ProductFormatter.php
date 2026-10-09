@@ -28,6 +28,24 @@ final class ProductFormatter {
 		return $this->card_data( $product, $presentation, $lookup );
 	}
 
+
+	/**
+	 * Product-list representation used by GET /products.
+	 * Home-page product rows keep using format_card() so they remain lightweight.
+	 */
+	public function format_list_item( \WC_Product $product, array $lookup = array() ): array {
+		$data           = $this->format_card( $product, $lookup );
+		$brand_taxonomy = Taxonomy::brand_taxonomy();
+
+		$data['total_sales']    = (int) $product->get_total_sales();
+		$data['average_rating'] = (float) $product->get_average_rating();
+		$data['category']       = Taxonomy::terms( $product->get_id(), 'product_cat' );
+		$data['brand']          = $brand_taxonomy ? Taxonomy::terms( $product->get_id(), $brand_taxonomy ) : array();
+		$data['attributes']     = $this->filterable_product_attributes( $product );
+
+		return $data;
+	}
+
 	/**
 	 * Full product representation used by GET /products/{id}.
 	 *
@@ -519,6 +537,60 @@ final class ProductFormatter {
 	 * Returns every product attribute in WooCommerce order. Taxonomy-based
 	 * options are converted from internal term IDs/slugs to their display names.
 	 */
+	/**
+	 * Returns only archive-enabled global attributes in an ID-based shape that
+	 * can be used for local/offline filtering of the product list.
+	 */
+	private function filterable_product_attributes( \WC_Product $product ): array {
+		$definitions = Taxonomy::filterable_attributes();
+		if ( ! $definitions ) {
+			return array();
+		}
+
+		$taxonomies = array_values( array_unique( array_map(
+			static function ( $definition ) {
+				return (string) $definition['taxonomy'];
+			},
+			$definitions
+		) ) );
+
+		$terms = wp_get_object_terms( $product->get_id(), $taxonomies );
+		if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
+			return array();
+		}
+
+		$by_taxonomy = array();
+		foreach ( $terms as $term ) {
+			if ( $term instanceof \WP_Term ) {
+				$by_taxonomy[ $term->taxonomy ][] = $term;
+			}
+		}
+
+		$result = array();
+		foreach ( $definitions as $definition ) {
+			$taxonomy = (string) $definition['taxonomy'];
+			$options  = array();
+			foreach ( $by_taxonomy[ $taxonomy ] ?? array() as $term ) {
+				$options[] = array(
+					'id'   => (int) $term->term_id,
+					'name' => (string) $term->name,
+				);
+			}
+
+			if ( ! $options ) {
+				continue;
+			}
+
+			$result[] = array(
+				'id'      => (int) $definition['id'],
+				'name'    => (string) $definition['name'],
+				'options' => $options,
+			);
+		}
+
+		return $result;
+	}
+
 	private function attributes( \WC_Product $product ): array {
 		$result = array();
 
