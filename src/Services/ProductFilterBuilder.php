@@ -35,17 +35,21 @@ final class ProductFilterBuilder {
 		}
 
 		$by_parent = array();
+		$term_ids  = array();
 		foreach ( $terms as $term ) {
 			if ( ! $term instanceof \WP_Term ) {
 				continue;
 			}
 			$by_parent[ (int) $term->parent ][] = $term;
+			$term_ids[] = (int) $term->term_id;
 		}
 
-		return $this->category_children( 0, $by_parent, array() );
+		$counts = Taxonomy::published_product_counts( 'product_cat', $term_ids );
+
+		return $this->category_children( 0, $by_parent, array(), $counts );
 	}
 
-	private function category_children( int $parent_id, array $by_parent, array $visited ): array {
+	private function category_children( int $parent_id, array $by_parent, array $visited, array $counts ): array {
 		if ( isset( $visited[ $parent_id ] ) ) {
 			return array();
 		}
@@ -56,8 +60,9 @@ final class ProductFilterBuilder {
 			$result[] = array(
 				'id'       => (int) $term->term_id,
 				'name'     => (string) $term->name,
+				'count'    => (int) ( $counts[ (int) $term->term_id ] ?? $term->count ),
 				'image'    => Taxonomy::term_image_url( $term ),
-				'children' => $this->category_children( (int) $term->term_id, $by_parent, $visited ),
+				'children' => $this->category_children( (int) $term->term_id, $by_parent, $visited, $counts ),
 			);
 		}
 

@@ -1,4 +1,4 @@
-# Application API v2.3.2
+# Application API v2.3.3
 
 ## Products
 
@@ -55,3 +55,9 @@ Each product-list item contains the compact card fields plus `total_sales`, nume
 `GET /wp-json/app-api/v1/{configured-home-endpoint}`
 
 Post-section dates are returned as Solar Hijri dates in `YYYY-MM-DD` format with no time component.
+
+
+## Changes in 2.3.3
+
+- Product-list items now use `categories` instead of `category`.
+- Each category entry in `filters.categories` includes a numeric `count` of published products assigned to that category.

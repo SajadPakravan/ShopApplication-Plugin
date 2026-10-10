@@ -39,7 +39,7 @@ final class ProductFormatter {
 
 		$data['total_sales']    = (int) $product->get_total_sales();
 		$data['average_rating'] = (float) $product->get_average_rating();
-		$data['category']       = Taxonomy::terms( $product->get_id(), 'product_cat' );
+		$data['categories']     = Taxonomy::terms( $product->get_id(), 'product_cat' );
 		$data['brand']          = $brand_taxonomy ? Taxonomy::terms( $product->get_id(), $brand_taxonomy ) : array();
 		$data['attributes']     = $this->filterable_product_attributes( $product );
 
