@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Application API for WooCommerce
  * Plugin URI: https://yademansystem.ir
- * Description: A compact, app-oriented REST API for WooCommerce product cards and configurable application home pages.
- * Version: 2.4.0
+ * Description: A compact, app-oriented REST API for WooCommerce product cards and configurable home, product-detail and category pages.
+ * Version: 2.5.0
  * Author: Sajad Pakravan
  * Author URI: https://yademansystem.ir
  * License: GPL-2.0-or-later
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'APP_API_VERSION', '2.4.0' );
+define( 'APP_API_VERSION', '2.5.0' );
 define( 'APP_API_FILE', __FILE__ );
 define( 'APP_API_PATH', plugin_dir_path( __FILE__ ) );
 define( 'APP_API_URL', plugin_dir_url( __FILE__ ) );

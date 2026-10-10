@@ -1,4 +1,4 @@
-# Application API v2.4.0
+# Application API v2.5.0
 
 ## Product list
 
@@ -18,7 +18,7 @@ Supported query parameters:
 - `orderby`: `date`, `price`, `rating`, `popularity`, `count_sales`, `id`, `title`
 - `order`: `asc`, `desc`
 
-Product cards use one shared contract in the product list, Home product sections, and related-product sections:
+Product cards use one shared contract in the product list, Home product sections, and related products:
 
 ```json
 {
@@ -46,15 +46,32 @@ Product cards use one shared contract in the product list, Home product sections
 
 Variable attributes are grouped in `variations`. Each option represents an actual published WooCommerce variation and exposes its variation ID, option name, SKU, swatch color/image, price, stock, discount and product image. `default_variation` is only the numeric variation ID.
 
-Configurable detail-page sections are returned in `data.sections`. The built-in sections are:
+There is no `sections` wrapper in the public product-detail JSON. After `variations`, the optional keys are appended in this fixed order:
 
-- related products (`type: products`)
-- customer reviews (`type: reviews`)
+1. `reviews`
+2. `related_products`
 
-Their active state and order are configurable from **Application API → Products → Product detail**.
+Both can be enabled/disabled and configured from **Application API → محصولات → جزئیات محصول**, but their public order is not configurable.
 
 ## Home
 
 `GET /wp-json/app-api/v1/{configured-home-endpoint}`
 
 Home product sections use the same product-card contract as the product list. Post entries include a Solar Hijri `date` and a `categories` list after it.
+
+## Category page
+
+`GET /wp-json/app-api/v1/categories/{id}`
+
+The category response contains the current category metadata plus a configurable `sections` array. The Categories admin tab acts as a visual builder and supports these section types:
+
+- `image`: one or more image/banner/menu-like items with actions.
+- `product`: one explicitly selected published product, returned with the shared product-card contract.
+- `category`: a category list.
+
+A category-list section can use either:
+
+- manually entered category IDs, preserving their configured order; or
+- all top-level/parent product categories.
+
+Each category item contains `id`, `name`, published-product `count`, and the original/full taxonomy image URL.

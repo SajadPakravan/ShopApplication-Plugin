@@ -4,14 +4,16 @@ namespace AppAPI\Rest;
 
 use AppAPI\Config;
 use AppAPI\Controllers\HomeController;
+use AppAPI\Controllers\CategoryController;
 use AppAPI\Controllers\ProductController;
 
 defined( 'ABSPATH' ) || exit;
 
 final class Routes {
 	public function register(): void {
-		$product_controller = new ProductController();
-		$home_controller    = new HomeController();
+		$product_controller  = new ProductController();
+		$home_controller     = new HomeController();
+		$category_controller = new CategoryController();
 
 		register_rest_route(
 			Config::REST_NAMESPACE,
@@ -48,6 +50,24 @@ final class Routes {
 				'methods'             => \WP_REST_Server::READABLE,
 				'callback'            => array( $home_controller, 'index' ),
 				'permission_callback' => '__return_true',
+			)
+		);
+
+
+		register_rest_route(
+			Config::REST_NAMESPACE,
+			'/categories/(?P<id>\d+)',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( $category_controller, 'show' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'id' => array(
+						'type'              => 'integer',
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+				),
 			)
 		);
 	}

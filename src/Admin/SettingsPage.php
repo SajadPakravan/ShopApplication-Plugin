@@ -48,6 +48,16 @@ final class SettingsPage {
 			)
 		);
 
+
+		register_setting(
+			'app_api_category_settings',
+			Config::OPTION_CATEGORY_CONFIG,
+			array(
+				'type'              => 'array',
+				'sanitize_callback' => array( $this, 'sanitize_category_page_configuration' ),
+			)
+		);
+
 		register_setting(
 			'app_api_settings',
 			Config::OPTION_HOME_ENDPOINT,
@@ -73,6 +83,8 @@ final class SettingsPage {
 			'appApiAdmin',
 			array(
 				'optionName'       => Config::OPTION_HOME_CONFIG,
+				'categoryOptionName' => Config::OPTION_CATEGORY_CONFIG,
+				'categorySectionTypeNames' => Config::addable_category_section_types(),
 				'mediaTitle'       => 'انتخاب تصویر',
 				'mediaButton'      => 'استفاده از این تصویر',
 				'emptyImage'       => 'هنوز تصویری انتخاب نشده است',
@@ -276,34 +288,28 @@ final class SettingsPage {
 	}
 
 	public function sanitize_product_detail_configuration( $input ): array {
-		$input = is_array( $input ) ? wp_unslash( $input ) : array();
-		$current = Config::product_detail_configuration();
+		$input    = is_array( $input ) ? wp_unslash( $input ) : array();
+		$current  = Config::product_detail_configuration();
 		$defaults = Config::default_product_detail_configuration();
-		$result = array( 'order' => array(), 'sections' => array() );
+		$result   = array( 'sections' => array() );
 		$raw_sections = isset( $input['sections'] ) && is_array( $input['sections'] ) ? $input['sections'] : array();
 
 		foreach ( $defaults['sections'] as $key => $default ) {
-			$raw = isset( $raw_sections[ $key ] ) && is_array( $raw_sections[ $key ] ) ? $raw_sections[ $key ] : array();
+			$raw      = isset( $raw_sections[ $key ] ) && is_array( $raw_sections[ $key ] ) ? $raw_sections[ $key ] : array();
 			$existing = $current['sections'][ $key ] ?? $default;
-			$layout = isset( $raw['layout'] ) && is_array( $raw['layout'] ) ? $raw['layout'] : array();
+			$layout   = isset( $raw['layout'] ) && is_array( $raw['layout'] ) ? $raw['layout'] : array();
 			$direction = in_array( $layout['direction'] ?? '', array( 'horizontal', 'vertical' ), true ) ? $layout['direction'] : ( $existing['layout']['direction'] ?? 'horizontal' );
 			$per_page = absint( $raw['per_page'] ?? ( $existing['per_page'] ?? 10 ) );
-			$orderby = sanitize_key( (string) ( $raw['view_all_orderby'] ?? ( $existing['view_all_orderby'] ?? 'date' ) ) );
-			$order = strtolower( sanitize_key( (string) ( $raw['view_all_order'] ?? ( $existing['view_all_order'] ?? 'desc' ) ) ) );
+			$orderby  = sanitize_key( (string) ( $raw['view_all_orderby'] ?? ( $existing['view_all_orderby'] ?? 'date' ) ) );
+			$order    = strtolower( sanitize_key( (string) ( $raw['view_all_order'] ?? ( $existing['view_all_order'] ?? 'desc' ) ) ) );
 
 			if ( 'related_products' === $key ) {
-				if ( 'cout_sales' === $orderby ) {
-					$orderby = 'count_sales';
-				}
-				if ( ! in_array( $orderby, Config::allowed_action_orderby(), true ) ) {
-					$orderby = 'date';
-				}
+				if ( 'cout_sales' === $orderby ) { $orderby = 'count_sales'; }
+				if ( ! in_array( $orderby, Config::allowed_action_orderby(), true ) ) { $orderby = 'date'; }
 			} elseif ( ! in_array( $orderby, array( 'date', 'rating' ), true ) ) {
 				$orderby = 'date';
 			}
-			if ( ! in_array( $order, array( 'asc', 'desc' ), true ) ) {
-				$order = 'desc';
-			}
+			if ( ! in_array( $order, array( 'asc', 'desc' ), true ) ) { $order = 'desc'; }
 
 			$result['sections'][ $key ] = array(
 				'id' => $this->sanitize_api_id( (string) ( $raw['id'] ?? ( $existing['id'] ?? $default['id'] ) ), $default['id'] ),
@@ -326,19 +332,56 @@ final class SettingsPage {
 				$result['sections'][ $key ]['on_sale'] = ! empty( $raw['on_sale'] );
 			}
 		}
+		return $result;
+	}
+
+	public function sanitize_category_page_configuration( $input ): array {
+		$input = is_array( $input ) ? wp_unslash( $input ) : array();
+		$raw = isset( $input['sections'] ) && is_array( $input['sections'] ) ? $input['sections'] : array();
+		$current = Config::category_page_configuration();
+		$result = array( 'order' => array(), 'sections' => array() );
+
+		foreach ( $raw as $raw_key => $section ) {
+			if ( ! is_array( $section ) ) { continue; }
+			$key = sanitize_key( (string) $raw_key ) ?: 'section_' . ( count( $result['sections'] ) + 1 );
+			$type = isset( $current['sections'][ $key ]['type'] ) ? sanitize_key( (string) $current['sections'][ $key ]['type'] ) : sanitize_key( (string) ( $section['type'] ?? '' ) );
+			if ( ! in_array( $type, Config::allowed_category_section_types(), true ) ) { continue; }
+			$layout = isset( $section['layout'] ) && is_array( $section['layout'] ) ? $section['layout'] : array();
+			$clean = array(
+				'id' => $this->sanitize_api_id( (string) ( $section['id'] ?? $key ), $key ),
+				'type' => $type,
+				'enabled' => ! empty( $section['enabled'] ),
+				'title' => sanitize_text_field( (string) ( $section['title'] ?? '' ) ),
+				'subtitle' => sanitize_text_field( (string) ( $section['subtitle'] ?? '' ) ),
+				'layout' => array(
+					'direction' => in_array( $layout['direction'] ?? '', array( 'horizontal', 'vertical' ), true ) ? $layout['direction'] : 'horizontal',
+					'rows' => $this->positive_int( $layout['rows'] ?? 1, 12 ),
+					'columns' => $this->positive_int( $layout['columns'] ?? 1, 12 ),
+				),
+			);
+			if ( 'image' === $type ) {
+				$clean['data'] = $this->sanitize_image_items( $section['data'] ?? array() );
+			} elseif ( 'product' === $type ) {
+				$clean['product_id'] = absint( $section['product_id'] ?? 0 );
+			} elseif ( 'category' === $type ) {
+				$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
+				$clean['category_source'] = in_array( $source, array( 'custom', 'parents' ), true ) ? $source : 'custom';
+				$clean['include'] = Request::ids( $section['include'] ?? array() );
+				$clean['view_all_enabled'] = ! empty( $section['view_all_enabled'] );
+				$clean['view_all_title'] = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
+				$clean['view_all_action'] = Config::normalize_view_all_action( 'category', $section['view_all_action'] ?? array(), $clean['view_all_title'] );
+			}
+			$result['sections'][ $key ] = $clean;
+		}
 
 		$order_value = $input['order'] ?? array();
 		$order_keys = is_array( $order_value ) ? $order_value : explode( ',', (string) $order_value );
 		foreach ( $order_keys as $key ) {
 			$key = sanitize_key( (string) $key );
-			if ( isset( $result['sections'][ $key ] ) && ! in_array( $key, $result['order'], true ) ) {
-				$result['order'][] = $key;
-			}
+			if ( isset( $result['sections'][ $key ] ) && ! in_array( $key, $result['order'], true ) ) { $result['order'][] = $key; }
 		}
 		foreach ( array_keys( $result['sections'] ) as $key ) {
-			if ( ! in_array( $key, $result['order'], true ) ) {
-				$result['order'][] = $key;
-			}
+			if ( ! in_array( $key, $result['order'], true ) ) { $result['order'][] = $key; }
 		}
 		return $result;
 	}
@@ -406,13 +449,16 @@ final class SettingsPage {
 				<?php $this->render_products_tab(); ?>
 			</section>
 
-			<?php foreach ( array( 'categories' => 'دسته‌بندی‌ها', 'account' => 'حساب کاربری' ) as $key => $label ) : ?>
-				<section class="app-api-tab-panel" data-panel="<?php echo esc_attr( $key ); ?>">
-					<div class="app-api-empty-state"><span class="dashicons dashicons-admin-tools"></span><h2>تنظیمات API <?php echo esc_html( $label ); ?></h2><p>پس از ایجاد این API، تنظیمات اختصاصی آن در همین تب قرار می‌گیرد.</p></div>
-				</section>
-			<?php endforeach; ?>
+			<section class="app-api-tab-panel" data-panel="categories">
+				<?php $this->render_category_page_settings(); ?>
+			</section>
+
+			<section class="app-api-tab-panel" data-panel="account">
+				<div class="app-api-empty-state"><span class="dashicons dashicons-admin-tools"></span><h2>تنظیمات API حساب کاربری</h2><p>پس از ایجاد این API، تنظیمات اختصاصی آن در همین تب قرار می‌گیرد.</p></div>
+			</section>
 		</div>
 		<?php $this->render_section_template(); ?>
+		<?php $this->render_category_section_template(); ?>
 		<?php
 	}
 
@@ -510,6 +556,7 @@ final class SettingsPage {
 	private function render_product_detail_settings(): void {
 		$config = Config::product_detail_configuration();
 		$detail_url = rest_url( Config::REST_NAMESPACE . '/products/{id}' );
+		$keys = array( 'reviews', 'related_products' );
 		?>
 		<form method="post" action="options.php" id="app-api-product-detail-form">
 			<?php settings_fields( 'app_api_product_detail_settings' ); ?>
@@ -518,35 +565,21 @@ final class SettingsPage {
 				<label><span>آدرس کامل API</span><input type="text" dir="ltr" value="<?php echo esc_attr( $detail_url ); ?>" readonly></label>
 			</div>
 
-			<details class="app-api-card app-api-order-card app-api-accordion" open>
-				<summary><div class="app-api-card-title-text"><h2>فعال‌سازی و ترتیب بخش‌ها</h2><p>فقط بخش‌های فعال در آرایه <code>sections</code> API جزئیات محصول قرار می‌گیرند.</p></div></summary>
-				<div class="app-api-order-body app-api-accordion-body">
-					<div class="app-api-toggle-grid" id="app-api-product-detail-toggles">
-						<?php foreach ( $config['order'] as $key ) : $section = $config['sections'][ $key ]; ?>
-							<label class="app-api-toggle" data-detail-toggle="<?php echo esc_attr( $key ); ?>" data-label="<?php echo esc_attr( $section['title'] ); ?>" data-type="<?php echo esc_attr( $section['type'] ); ?>">
-								<input type="checkbox" class="app-api-detail-enabled" name="<?php echo esc_attr( Config::OPTION_PRODUCT_DETAIL_CONFIG ); ?>[sections][<?php echo esc_attr( $key ); ?>][enabled]" value="1" <?php checked( ! empty( $section['enabled'] ) ); ?>>
-								<span class="app-api-switch"></span><span class="app-api-toggle-label"><?php echo esc_html( $section['title'] ); ?></span>
-							</label>
-						<?php endforeach; ?>
-					</div>
-					<input type="hidden" id="app-api-product-detail-order" name="<?php echo esc_attr( Config::OPTION_PRODUCT_DETAIL_CONFIG ); ?>[order]" value="<?php echo esc_attr( implode( ',', $config['order'] ) ); ?>">
-					<ul class="app-api-sortable" id="app-api-product-detail-active-sections">
-						<?php foreach ( $config['order'] as $key ) : $section = $config['sections'][ $key ]; ?>
-							<?php if ( ! empty( $section['enabled'] ) ) : ?>
-								<li class="app-api-order-item" data-detail-section-id="<?php echo esc_attr( $key ); ?>">
-									<span class="dashicons dashicons-move app-api-detail-drag-handle"></span>
-									<div class="app-api-order-name"><strong><?php echo esc_html( $section['title'] ); ?></strong><small><?php echo esc_html( 'reviews' === $section['type'] ? 'نظرات' : 'محصولات' ); ?></small></div>
-									<div class="app-api-order-actions"><button type="button" class="button app-api-detail-move-up"><span class="dashicons dashicons-arrow-up-alt2"></span></button><button type="button" class="button app-api-detail-move-down"><span class="dashicons dashicons-arrow-down-alt2"></span></button></div>
-								</li>
-							<?php endif; ?>
-						<?php endforeach; ?>
-					</ul>
+			<div class="app-api-card app-api-order-card">
+				<div class="app-api-card-title"><div><h2>فعال‌سازی بخش‌ها</h2><p>ترتیب خروجی ثابت و استاندارد است: ابتدا نظرات کاربران و سپس محصولات مرتبط.</p></div></div>
+				<div class="app-api-toggle-grid" id="app-api-product-detail-toggles">
+					<?php foreach ( $keys as $key ) : $section = $config['sections'][ $key ]; ?>
+						<label class="app-api-toggle" data-detail-toggle="<?php echo esc_attr( $key ); ?>" data-label="<?php echo esc_attr( $section['title'] ); ?>" data-type="<?php echo esc_attr( $section['type'] ); ?>">
+							<input type="checkbox" class="app-api-detail-enabled" name="<?php echo esc_attr( Config::OPTION_PRODUCT_DETAIL_CONFIG ); ?>[sections][<?php echo esc_attr( $key ); ?>][enabled]" value="1" <?php checked( ! empty( $section['enabled'] ) ); ?>>
+							<span class="app-api-switch"></span><span class="app-api-toggle-label"><?php echo esc_html( $section['title'] ); ?></span>
+						</label>
+					<?php endforeach; ?>
 				</div>
-			</details>
+			</div>
 
 			<div class="app-api-section-heading"><div><h2>تنظیمات بخش‌های جزئیات محصول</h2></div></div>
 			<div class="app-api-section-cards" id="app-api-product-detail-cards">
-				<?php foreach ( $config['order'] as $key ) : ?>
+				<?php foreach ( $keys as $key ) : ?>
 					<?php $this->render_product_detail_section_card( $key, $config['sections'][ $key ] ); ?>
 				<?php endforeach; ?>
 			</div>
@@ -851,7 +884,7 @@ final class SettingsPage {
 
 	private function render_repeater( string $section_key, array $items, string $base_name ): void {
 		?>
-		<div class="app-api-subcard app-api-repeater" data-section="<?php echo esc_attr( $section_key ); ?>" data-kind="image">
+		<div class="app-api-subcard app-api-repeater" data-section="<?php echo esc_attr( $section_key ); ?>" data-kind="image" data-base-name="<?php echo esc_attr( $base_name ); ?>">
 			<div class="app-api-repeater-header"><div><h4>لیست تصاویر</h4><p>تصویر، عنوان، زیرعنوان و مقصد هر آیتم را مشخص کن و ترتیب نمایش را با درگ تغییر بده.</p></div><button type="button" class="button button-secondary app-api-add-item"><span class="dashicons dashicons-plus-alt2"></span> افزودن تصویر</button></div>
 			<div class="app-api-items-sortable">
 				<?php foreach ( $items as $index => $item ) : ?>
@@ -953,6 +986,176 @@ final class SettingsPage {
 		}
 		$id = trim( (string) ( $section['id'] ?? '' ) );
 		return '' !== $id ? $id : Config::section_type_label( (string) ( $section['type'] ?? '' ) );
+	}
+
+
+	private function render_category_page_settings(): void {
+		$config = Config::category_page_configuration();
+		$detail_url = rest_url( Config::REST_NAMESPACE . '/categories/{id}' );
+		?>
+		<form method="post" action="options.php" id="app-api-category-settings-form">
+			<?php settings_fields( 'app_api_category_settings' ); ?>
+			<div class="app-api-card app-api-endpoint-card">
+				<div class="app-api-card-title"><div><h2>API صفحه دسته‌بندی</h2><p>این آدرس ثابت است و شناسه دسته‌بندی جایگزین <code>{id}</code> می‌شود.</p></div></div>
+				<label><span>آدرس کامل API</span><input type="text" dir="ltr" value="<?php echo esc_attr( $detail_url ); ?>" readonly></label>
+			</div>
+
+			<?php $this->render_category_page_order( $config ); ?>
+
+			<div class="app-api-section-heading"><div><h2>تنظیمات بخش‌های صفحه دسته‌بندی</h2></div></div>
+			<div class="app-api-section-cards" id="app-api-category-section-cards">
+				<?php foreach ( $config['order'] as $key ) : ?>
+					<?php if ( isset( $config['sections'][ $key ] ) ) : ?>
+						<?php $this->render_category_section_card( $key, $config['sections'][ $key ] ); ?>
+					<?php endif; ?>
+				<?php endforeach; ?>
+			</div>
+			<div class="app-api-save-bar"><?php submit_button( 'ذخیره تنظیمات صفحه دسته‌بندی', 'primary', 'submit', false ); ?></div>
+		</form>
+		<?php
+	}
+
+	private function render_category_page_order( array $config ): void {
+		?>
+		<details class="app-api-card app-api-order-card app-api-accordion" open>
+			<summary><div class="app-api-card-title-text"><h2>فعال‌سازی و ترتیب نمایش</h2><p>بخش‌های فعال را با درگ یا دکمه‌های بالا و پایین در ترتیب دلخواه قرار بده.</p></div></summary>
+			<div class="app-api-order-body app-api-accordion-body">
+				<div class="app-api-builder-toolbar">
+					<div><strong>افزودن بخش جدید</strong><span>نوع بخش پس از ساخت ثابت می‌ماند.</span></div>
+					<div class="app-api-add-section-controls">
+						<select id="app-api-category-new-section-type">
+							<?php foreach ( Config::addable_category_section_types() as $type => $label ) : ?>
+								<option value="<?php echo esc_attr( $type ); ?>"><?php echo esc_html( $label ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<button type="button" class="button button-primary" id="app-api-category-add-section"><span class="dashicons dashicons-plus-alt2"></span> افزودن بخش</button>
+					</div>
+				</div>
+				<div class="app-api-toggle-grid" id="app-api-category-section-toggles">
+					<?php foreach ( $config['order'] as $key ) : ?>
+						<?php $section = $config['sections'][ $key ]; $label = $this->category_section_label( $section ); ?>
+						<label class="app-api-toggle" data-category-toggle-section="<?php echo esc_attr( $key ); ?>" data-label="<?php echo esc_attr( $label ); ?>" data-type="<?php echo esc_attr( $section['type'] ); ?>">
+							<input type="checkbox" class="app-api-category-section-enabled" name="<?php echo esc_attr( Config::OPTION_CATEGORY_CONFIG ); ?>[sections][<?php echo esc_attr( $key ); ?>][enabled]" value="1" <?php checked( ! empty( $section['enabled'] ) ); ?>>
+							<span class="app-api-switch"></span><span class="app-api-toggle-label"><?php echo esc_html( $label ); ?></span>
+						</label>
+					<?php endforeach; ?>
+				</div>
+				<input type="hidden" id="app-api-category-section-order" name="<?php echo esc_attr( Config::OPTION_CATEGORY_CONFIG ); ?>[order]" value="<?php echo esc_attr( implode( ',', $config['order'] ) ); ?>">
+				<ul class="app-api-sortable" id="app-api-category-active-sections">
+					<?php foreach ( $config['order'] as $key ) : $section = $config['sections'][ $key ]; ?>
+						<?php if ( ! empty( $section['enabled'] ) ) : ?>
+							<li class="app-api-order-item" data-category-section-id="<?php echo esc_attr( $key ); ?>">
+								<span class="dashicons dashicons-move app-api-category-drag-handle"></span>
+								<div class="app-api-order-name"><strong><?php echo esc_html( $this->category_section_label( $section ) ); ?></strong><small><?php echo esc_html( Config::category_section_type_label( $section['type'] ) ); ?></small></div>
+								<div class="app-api-order-actions"><button type="button" class="button app-api-category-move-up"><span class="dashicons dashicons-arrow-up-alt2"></span></button><button type="button" class="button app-api-category-move-down"><span class="dashicons dashicons-arrow-down-alt2"></span></button></div>
+							</li>
+						<?php endif; ?>
+					<?php endforeach; ?>
+				</ul>
+			</div>
+		</details>
+		<?php
+	}
+
+	private function category_section_label( array $section ): string {
+		$title = trim( (string) ( $section['title'] ?? '' ) );
+		$id    = trim( (string) ( $section['id'] ?? '' ) );
+		$type  = sanitize_key( (string) ( $section['type'] ?? 'category' ) );
+		return $title ?: ( $id ?: Config::category_section_type_label( $type ) );
+	}
+
+	private function render_category_section_card( string $key, array $section ): void {
+		$type   = sanitize_key( (string) ( $section['type'] ?? 'category' ) );
+		$label  = $this->category_section_label( $section );
+		$name   = Config::OPTION_CATEGORY_CONFIG . '[sections][' . $key . ']';
+		$layout = isset( $section['layout'] ) && is_array( $section['layout'] ) ? $section['layout'] : Config::default_layout_for_type( $type );
+		?>
+		<details class="app-api-section-card app-api-category-section-card app-api-accordion <?php echo empty( $section['enabled'] ) ? 'is-disabled' : ''; ?>" data-category-section-card="<?php echo esc_attr( $key ); ?>" data-section-type="<?php echo esc_attr( $type ); ?>">
+			<summary>
+				<div><strong class="app-api-card-label"><?php echo esc_html( $label ); ?></strong><small><code class="app-api-card-id"><?php echo esc_html( $section['id'] ); ?></code> · <span class="app-api-card-type"><?php echo esc_html( Config::category_section_type_label( $type ) ); ?></span></small></div>
+				<div class="app-api-summary-actions"><span class="app-api-status"><?php echo empty( $section['enabled'] ) ? 'غیرفعال' : 'فعال'; ?></span><button type="button" class="button-link-delete app-api-category-delete-section">حذف بخش</button></div>
+			</summary>
+			<div class="app-api-section-body app-api-accordion-body">
+				<div class="app-api-field-grid four-columns">
+					<label><span>شناسه دلخواه بخش</span><input type="text" dir="ltr" class="app-api-category-section-id-input" name="<?php echo esc_attr( $name ); ?>[id]" value="<?php echo esc_attr( $section['id'] ); ?>"></label>
+					<label><span>نوع بخش</span><input type="text" dir="ltr" class="app-api-category-section-type-display" value="<?php echo esc_attr( $type ); ?>" readonly><input type="hidden" class="app-api-category-section-type" name="<?php echo esc_attr( $name ); ?>[type]" value="<?php echo esc_attr( $type ); ?>"></label>
+					<label><span>عنوان بخش</span><input type="text" class="app-api-category-section-title-input" name="<?php echo esc_attr( $name ); ?>[title]" value="<?php echo esc_attr( $section['title'] ?? '' ); ?>"></label>
+					<label><span>زیرعنوان بخش</span><input type="text" name="<?php echo esc_attr( $name ); ?>[subtitle]" value="<?php echo esc_attr( $section['subtitle'] ?? '' ); ?>"></label>
+				</div>
+				<div class="app-api-subcard">
+					<div class="app-api-subcard-heading"><div><h4>چیدمان خروجی</h4></div></div>
+					<div class="app-api-field-grid three-columns">
+						<label><span>جهت نمایش</span><select name="<?php echo esc_attr( $name ); ?>[layout][direction]"><option value="horizontal" <?php selected( $layout['direction'] ?? '', 'horizontal' ); ?>>افقی</option><option value="vertical" <?php selected( $layout['direction'] ?? '', 'vertical' ); ?>>عمودی</option></select></label>
+						<label><span>تعداد سطر</span><input type="number" min="1" max="12" name="<?php echo esc_attr( $name ); ?>[layout][rows]" value="<?php echo esc_attr( $layout['rows'] ?? 1 ); ?>"></label>
+						<label><span>تعداد ستون</span><input type="number" min="1" max="12" name="<?php echo esc_attr( $name ); ?>[layout][columns]" value="<?php echo esc_attr( $layout['columns'] ?? 1 ); ?>"></label>
+					</div>
+				</div>
+
+				<div class="app-api-category-type-panel" data-category-type-panel="image" <?php echo 'image' !== $type ? 'hidden' : ''; ?>><?php $this->render_repeater( $key, $section['data'] ?? array(), $name ); ?></div>
+				<div class="app-api-category-type-panel" data-category-type-panel="product" <?php echo 'product' !== $type ? 'hidden' : ''; ?>>
+					<div class="app-api-subcard"><div class="app-api-subcard-heading"><div><h4>محصول انتخابی</h4><p>شناسه محصولی را وارد کن که باید در این بخش نمایش داده شود.</p></div></div><label><span>شناسه محصول</span><input type="number" min="1" name="<?php echo esc_attr( $name ); ?>[product_id]" value="<?php echo esc_attr( absint( $section['product_id'] ?? 0 ) ?: '' ); ?>" placeholder="مثلاً 2143"></label></div>
+				</div>
+				<div class="app-api-category-type-panel" data-category-type-panel="category" <?php echo 'category' !== $type ? 'hidden' : ''; ?>><?php $this->render_category_page_terms_settings( $name, $section ); ?></div>
+			</div>
+		</details>
+		<?php
+	}
+
+	private function render_category_page_terms_settings( string $name, array $section ): void {
+		$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
+		$source = in_array( $source, array( 'custom', 'parents' ), true ) ? $source : 'custom';
+		$enabled = array_key_exists( 'view_all_enabled', $section ) ? ! empty( $section['view_all_enabled'] ) : true;
+		$title = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
+		$action = isset( $section['view_all_action'] ) && is_array( $section['view_all_action'] ) ? $section['view_all_action'] : array();
+		?>
+		<div class="app-api-subcard app-api-category-page-selector" data-category-page-selector>
+			<div class="app-api-subcard-heading"><div><h4>دسته‌بندی‌های انتخابی</h4><p>دسته‌بندی‌ها را دستی با شناسه انتخاب کن یا همه دسته‌بندی‌های والد و اصلی فروشگاه را نمایش بده.</p></div></div>
+			<label><span>روش انتخاب دسته‌بندی‌ها</span><select class="app-api-category-page-source" name="<?php echo esc_attr( $name ); ?>[category_source]"><option value="custom" <?php selected( $source, 'custom' ); ?>>انتخاب سفارشی با شناسه</option><option value="parents" <?php selected( $source, 'parents' ); ?>>نمایش دسته‌بندی‌های والد</option></select></label>
+			<label class="app-api-category-page-custom-field" <?php echo 'custom' === $source ? '' : 'hidden'; ?>><span>دسته‌بندی‌های انتخابی</span><select name="<?php echo esc_attr( $name ); ?>[include][]" multiple size="8"><?php $this->render_all_product_category_options( Request::ids( $section['include'] ?? array() ) ); ?></select><small>یک یا چند دسته‌بندی را از فهرست انتخاب کن.</small></label>
+			<p class="description app-api-category-page-parents-help" <?php echo 'parents' === $source ? '' : 'hidden'; ?>>در این حالت همه دسته‌بندی‌های سطح اصلی با ترتیب تعریف‌شده در فروشگاه نمایش داده می‌شوند.</p>
+		</div>
+		<?php $this->render_view_all_settings( $name, $title, $action, $enabled, 'category' ); ?>
+		<?php
+	}
+
+	private function render_all_product_category_options( array $selected_ids ): void {
+		$terms = get_terms(
+			array(
+				'taxonomy'   => 'product_cat',
+				'hide_empty' => false,
+				'orderby'    => 'name',
+				'order'      => 'ASC',
+			)
+		);
+		if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
+			return;
+		}
+		foreach ( $terms as $term ) {
+			if ( ! $term instanceof \WP_Term ) {
+				continue;
+			}
+			$ancestors = get_ancestors( (int) $term->term_id, 'product_cat', 'taxonomy' );
+			$depth     = is_array( $ancestors ) ? count( $ancestors ) : 0;
+			$prefix    = $depth ? str_repeat( '— ', $depth ) : '';
+			printf(
+				'<option value="%1$d" %2$s>%3$s</option>',
+				(int) $term->term_id,
+				selected( in_array( (int) $term->term_id, $selected_ids, true ), true, false ),
+				esc_html( $prefix . $term->name )
+			);
+		}
+	}
+
+	private function render_category_section_template(): void {
+		?>
+		<script type="text/template" id="app-api-category-section-template">
+			<?php
+			$template = Config::new_category_section_defaults( 'category', '__KEY__' );
+			$template['id'] = '__ID__';
+			$this->render_category_section_card( '__KEY__', $template );
+			?>
+		</script>
+		<?php
 	}
 
 	private function render_section_template(): void {

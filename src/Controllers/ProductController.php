@@ -102,8 +102,16 @@ final class ProductController {
 			);
 		}
 
-		$data = $this->formatter->format_detail( $product, $this->repository->lookup( $product->get_id() ) );
-		$data['sections'] = ( new ProductDetailBuilder( $this->repository, $this->formatter ) )->build( $product );
+		$data    = $this->formatter->format_detail( $product, $this->repository->lookup( $product->get_id() ) );
+		$detail  = new ProductDetailBuilder( $this->repository, $this->formatter );
+		$reviews = $detail->reviews( $product );
+		if ( null !== $reviews ) {
+			$data['reviews'] = $reviews;
+		}
+		$related = $detail->related_products( $product );
+		if ( null !== $related ) {
+			$data['related_products'] = $related;
+		}
 
 		return Response::success(
 			array(

@@ -55,23 +55,11 @@
 			handle: '.app-api-item-drag',
 			placeholder: 'app-api-repeater-item ui-sortable-placeholder'
 		});
-		$('#app-api-product-detail-active-sections').sortable({
-			handle: '.app-api-detail-drag-handle',
+		$('#app-api-category-active-sections').sortable({
+			handle: '.app-api-category-drag-handle',
 			placeholder: 'app-api-order-item ui-sortable-placeholder',
-			update: updateDetailOrderInput
+			update: updateCategoryOrderInput
 		});
-	}
-
-	function updateDetailOrderInput() {
-		var ordered = [];
-		$('#app-api-product-detail-active-sections .app-api-order-item').each(function () {
-			ordered.push(String($(this).data('detail-section-id')));
-		});
-		$('#app-api-product-detail-toggles .app-api-toggle').each(function () {
-			var key = String($(this).data('detail-toggle'));
-			if (ordered.indexOf(key) === -1) { ordered.push(key); }
-		});
-		$('#app-api-product-detail-order').val(ordered.join(','));
 	}
 
 	function actionOptions() {
@@ -99,9 +87,9 @@
 		}).join('');
 	}
 
-	function newRepeaterItem(sectionKey) {
+	function newRepeaterItem(sectionKey, explicitBaseName) {
 		var index = 'new_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-		var base = optionName + '[sections][' + sectionKey + '][data][' + index + ']';
+		var base = explicitBaseName ? String(explicitBaseName) + '[data][' + index + ']' : optionName + '[sections][' + sectionKey + '][data][' + index + ']';
 		var actionBase = base + '[action]';
 
 		return '<div class="app-api-repeater-item" data-item-index="' + index + '">' +
@@ -302,6 +290,101 @@
 		}
 	}
 
+
+	var categoryOptionName = (window.appApiAdmin && appApiAdmin.categoryOptionName) || 'app_api_category_page_configuration';
+
+	function categoryTypeLabel(type) {
+		var names = (window.appApiAdmin && appApiAdmin.categorySectionTypeNames) || {};
+		return names[type] || type;
+	}
+
+	function categoryOrderItem(key, label, type) {
+		return '<li class="app-api-order-item" data-category-section-id="' + escapeHtml(key) + '">' +
+			'<span class="dashicons dashicons-move app-api-category-drag-handle" aria-hidden="true"></span>' +
+			'<div class="app-api-order-name"><strong>' + escapeHtml(label) + '</strong><small>' + escapeHtml(categoryTypeLabel(type)) + '</small></div>' +
+			'<div class="app-api-order-actions"><button type="button" class="button app-api-category-move-up"><span class="dashicons dashicons-arrow-up-alt2"></span></button><button type="button" class="button app-api-category-move-down"><span class="dashicons dashicons-arrow-down-alt2"></span></button></div></li>';
+	}
+
+	function categoryToggleItem(key, label, type) {
+		var name = categoryOptionName + '[sections][' + key + '][enabled]';
+		return '<label class="app-api-toggle" data-category-toggle-section="' + escapeHtml(key) + '" data-label="' + escapeHtml(label) + '" data-type="' + escapeHtml(type) + '">' +
+			'<input type="checkbox" class="app-api-category-section-enabled" name="' + escapeHtml(name) + '" value="1" checked>' +
+			'<span class="app-api-switch"></span><span class="app-api-toggle-label">' + escapeHtml(label) + '</span></label>';
+	}
+
+	function updateCategoryOrderInput() {
+		var ordered = [];
+		$('#app-api-category-active-sections .app-api-order-item').each(function () {
+			ordered.push(String($(this).data('category-section-id')));
+		});
+		$('#app-api-category-section-toggles .app-api-toggle').each(function () {
+			var key = String($(this).data('category-toggle-section'));
+			if (ordered.indexOf(key) === -1) { ordered.push(key); }
+		});
+		$('#app-api-category-section-order').val(ordered.join(','));
+	}
+
+	function setCategoryTypePanelState($card, type) {
+		$card.attr('data-section-type', type);
+		$card.find('.app-api-category-type-panel').each(function () {
+			var $panel = $(this);
+			var active = String($panel.data('category-type-panel')) === String(type);
+			$panel.prop('hidden', !active);
+			$panel.find(':input').prop('disabled', !active);
+			if (active) {
+				$panel.find('.app-api-view-all-enabled').each(function () { syncViewAll($(this)); });
+			}
+		});
+	}
+
+	function categorySectionLabel($card) {
+		var title = $.trim($card.find('.app-api-category-section-title-input').first().val() || '');
+		var id = $.trim($card.find('.app-api-category-section-id-input').first().val() || '');
+		var type = $card.find('.app-api-category-section-type').first().val() || 'category';
+		return title || id || categoryTypeLabel(type);
+	}
+
+	function syncCategorySectionIdentity($card) {
+		var key = String($card.data('category-section-card'));
+		var type = $card.find('.app-api-category-section-type').first().val() || 'category';
+		var id = $.trim($card.find('.app-api-category-section-id-input').first().val() || '');
+		var label = categorySectionLabel($card);
+		$card.find('.app-api-card-label').first().text(label);
+		$card.find('.app-api-card-id').first().text(id || key);
+		$card.find('.app-api-card-type').first().text(categoryTypeLabel(type));
+		var $toggle = $('.app-api-toggle[data-category-toggle-section="' + key + '"]');
+		$toggle.attr('data-label', label).attr('data-type', type).find('.app-api-toggle-label').text(label);
+		var $order = $('.app-api-order-item[data-category-section-id="' + key + '"]');
+		$order.find('.app-api-order-name strong').text(label);
+		$order.find('.app-api-order-name small').text(categoryTypeLabel(type));
+	}
+
+	function buildCategorySectionFromTemplate(key, type) {
+		var template = $('#app-api-category-section-template').html() || '';
+		var id = type + '_' + Date.now();
+		template = template.split('__KEY__').join(key).split('__ID__').join(id);
+		var $card = $(template.trim());
+		$card.data('category-section-card', key).attr('data-category-section-card', key);
+		$card.find('.app-api-category-section-type').val(type);
+		$card.find('.app-api-category-section-type-display').val(type);
+		$card.find('.app-api-category-section-id-input').val(id);
+		$card.find('.app-api-category-section-title-input').val('');
+		$card.find('input[name$="[subtitle]"]').first().val('');
+		$card.find('.app-api-status').first().text('فعال');
+		$card.removeClass('is-disabled').prop('open', false);
+		setCategoryTypePanelState($card, type);
+		syncCategorySectionIdentity($card);
+		return { card: $card, id: id };
+	}
+
+	function syncCategoryPageSelector($select) {
+		var source = String($select.val() || 'custom');
+		var $container = $select.closest('[data-category-page-selector]');
+		var showCustom = source === 'custom';
+		$container.find('.app-api-category-page-custom-field').prop('hidden', !showCustom).find(':input').prop('disabled', !showCustom);
+		$container.find('.app-api-category-page-parents-help').prop('hidden', showCustom);
+	}
+
 	$(function () {
 		initSortables();
 
@@ -329,6 +412,12 @@
 		$('.app-api-view-all-enabled').each(function () {
 			syncViewAll($(this));
 		});
+
+		$('.app-api-category-section-card').each(function () {
+			var $card = $(this);
+			setCategoryTypePanelState($card, $card.find('.app-api-category-section-type').first().val() || $card.data('section-type'));
+		});
+		$('.app-api-category-page-source').each(function () { syncCategoryPageSelector($(this)); });
 
 		$('.app-api-tab').on('click', function () {
 			var tab = $(this).data('tab');
@@ -421,7 +510,7 @@
 
 		$(document).on('click', '.app-api-add-item', function () {
 			var $repeater = $(this).closest('.app-api-repeater');
-			var $item = $(newRepeaterItem($repeater.data('section')));
+			var $item = $(newRepeaterItem($repeater.data('section'), $repeater.data('base-name')));
 			$repeater.find('.app-api-items-sortable').append($item);
 			syncActionField($item.find('.app-api-action-type'));
 		});
@@ -442,41 +531,70 @@
 			syncViewAll($(this));
 		});
 
+
+		$('#app-api-category-add-section').on('click', function () {
+			var type = $('#app-api-category-new-section-type').val() || 'category';
+			var key = 'section_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+			var built = buildCategorySectionFromTemplate(key, type);
+			$('#app-api-category-section-toggles').append(categoryToggleItem(key, built.id, type));
+			$('#app-api-category-active-sections').append(categoryOrderItem(key, built.id, type));
+			$('#app-api-category-section-cards').append(built.card);
+			openAccordion(built.card);
+			built.card.find('.app-api-view-all-enabled').each(function () { syncViewAll($(this)); });
+			built.card.find('.app-api-action-type').each(function () { syncActionField($(this)); });
+			built.card.find('.app-api-category-page-source').each(function () { syncCategoryPageSelector($(this)); });
+			built.card.find('.app-api-items-sortable').sortable({ handle: '.app-api-item-drag', placeholder: 'app-api-repeater-item ui-sortable-placeholder' });
+			updateCategoryOrderInput();
+			$('html, body').animate({ scrollTop: built.card.offset().top - 80 }, 300);
+		});
+
+		$(document).on('change', '.app-api-category-section-enabled', function () {
+			var $toggle = $(this).closest('.app-api-toggle');
+			var key = String($toggle.data('category-toggle-section'));
+			var $card = $('.app-api-category-section-card[data-category-section-card="' + key + '"]');
+			var type = $card.find('.app-api-category-section-type').first().val() || $toggle.data('type');
+			var label = categorySectionLabel($card);
+			if (this.checked) {
+				if (!$('#app-api-category-active-sections .app-api-order-item[data-category-section-id="' + key + '"]').length) {
+					$('#app-api-category-active-sections').append(categoryOrderItem(key, label, type));
+				}
+				$card.removeClass('is-disabled').find('.app-api-status').first().text('فعال');
+			} else {
+				$('#app-api-category-active-sections .app-api-order-item[data-category-section-id="' + key + '"]').remove();
+				$card.addClass('is-disabled').find('.app-api-status').first().text('غیرفعال');
+			}
+			updateCategoryOrderInput();
+		});
+
+		$(document).on('click', '.app-api-category-move-up', function () {
+			var $item = $(this).closest('.app-api-order-item');
+			if ($item.prev().length) { $item.prev().before($item); }
+			updateCategoryOrderInput();
+		});
+		$(document).on('click', '.app-api-category-move-down', function () {
+			var $item = $(this).closest('.app-api-order-item');
+			if ($item.next().length) { $item.next().after($item); }
+			updateCategoryOrderInput();
+		});
+		$(document).on('input', '.app-api-category-section-title-input, .app-api-category-section-id-input', function () {
+			syncCategorySectionIdentity($(this).closest('.app-api-category-section-card'));
+		});
+		$(document).on('click', '.app-api-category-delete-section', function (event) {
+			event.preventDefault(); event.stopPropagation();
+			if (!window.confirm(appApiAdmin.deleteSection || 'این بخش حذف شود؟')) { return; }
+			var $card = $(this).closest('.app-api-category-section-card');
+			var key = String($card.data('category-section-card'));
+			$('.app-api-toggle[data-category-toggle-section="' + key + '"]').remove();
+			$('.app-api-order-item[data-category-section-id="' + key + '"]').remove();
+			$card.remove();
+			updateCategoryOrderInput();
+		});
+		$(document).on('change', '.app-api-category-page-source', function () { syncCategoryPageSelector($(this)); });
 		$(document).on('change', '.app-api-detail-enabled', function () {
 			var $toggle = $(this).closest('.app-api-toggle');
 			var key = String($toggle.data('detail-toggle'));
 			var $card = $('.app-api-detail-section-card[data-detail-section-card="' + key + '"]');
-			if (this.checked) {
-				if (!$('#app-api-product-detail-active-sections .app-api-order-item[data-detail-section-id="' + key + '"]').length) {
-					var label = $toggle.data('label') || key;
-					$('#app-api-product-detail-active-sections').append('<li class="app-api-order-item" data-detail-section-id="' + escapeHtml(key) + '"><span class="dashicons dashicons-move app-api-detail-drag-handle"></span><div class="app-api-order-name"><strong>' + escapeHtml(label) + '</strong></div><div class="app-api-order-actions"><button type="button" class="button app-api-detail-move-up"><span class="dashicons dashicons-arrow-up-alt2"></span></button><button type="button" class="button app-api-detail-move-down"><span class="dashicons dashicons-arrow-down-alt2"></span></button></div></li>');
-				}
-				$card.removeClass('is-disabled').find('.app-api-status').first().text('فعال');
-			} else {
-				$('#app-api-product-detail-active-sections .app-api-order-item[data-detail-section-id="' + key + '"]').remove();
-				$card.addClass('is-disabled').find('.app-api-status').first().text('غیرفعال');
-			}
-			updateDetailOrderInput();
-		});
-
-		$(document).on('click', '.app-api-detail-move-up', function () {
-			var $item = $(this).closest('.app-api-order-item');
-			if ($item.prev().length) { $item.prev().before($item); }
-			updateDetailOrderInput();
-		});
-		$(document).on('click', '.app-api-detail-move-down', function () {
-			var $item = $(this).closest('.app-api-order-item');
-			if ($item.next().length) { $item.next().after($item); }
-			updateDetailOrderInput();
-		});
-
-		$(document).on('input', '.app-api-detail-section-title', function () {
-			var $card = $(this).closest('.app-api-detail-section-card');
-			var key = String($card.data('detail-section-card'));
-			var label = $.trim($(this).val() || '') || key;
-			$card.find('.app-api-card-label').first().text(label);
-			$('.app-api-toggle[data-detail-toggle="' + key + '"]').attr('data-label', label).find('.app-api-toggle-label').text(label);
-			$('#app-api-product-detail-active-sections .app-api-order-item[data-detail-section-id="' + key + '"] strong').text(label);
+			$card.toggleClass('is-disabled', !this.checked).find('.app-api-status').first().text(this.checked ? 'فعال' : 'غیرفعال');
 		});
 
 		$(document).on('input', '.app-api-image-item-title', function () {
@@ -521,6 +639,6 @@
 			});
 		});
 
-		$('#app-api-product-detail-form').on('submit', function () { updateDetailOrderInput(); });
+		$('#app-api-category-settings-form').on('submit', function () { updateCategoryOrderInput(); });
 	});
 })(jQuery);
