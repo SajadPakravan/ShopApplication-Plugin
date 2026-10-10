@@ -104,6 +104,35 @@ final class Taxonomy {
 		return '';
 	}
 
+	public static function terms_with_images( int $product_id, string $taxonomy ): array {
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			return array();
+		}
+
+		$terms = wp_get_post_terms( $product_id, $taxonomy );
+		if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
+			return array();
+		}
+
+		$result = array();
+		foreach ( $terms as $term ) {
+			if ( ! $term instanceof \WP_Term ) {
+				continue;
+			}
+			$result[] = array(
+				'id'    => (int) $term->term_id,
+				'name'  => (string) $term->name,
+				'image' => self::term_image_url( $term ),
+			);
+		}
+		return $result;
+	}
+
+	public static function first_term_with_image( int $product_id, string $taxonomy ): array {
+		$terms = self::terms_with_images( $product_id, $taxonomy );
+		return $terms ? $terms[0] : array( 'id' => 0, 'name' => '', 'image' => '' );
+	}
+
 	public static function terms( int $product_id, string $taxonomy ): array {
 		if ( ! taxonomy_exists( $taxonomy ) ) {
 			return array();

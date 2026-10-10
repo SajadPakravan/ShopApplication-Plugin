@@ -199,3 +199,15 @@
 @media (max-width: 600px) {
 	.app-api-param-list li { grid-template-columns:1fr; gap:4px; }
 }
+
+/* Product API nested tabs and detail builder (2.4.0) */
+.app-api-inner-tabs { display:grid; gap:18px; }
+.app-api-subtabs { display:flex; gap:8px; flex-wrap:wrap; padding:6px; border:1px solid var(--app-api-border); border-radius:14px; background:#fff; }
+.app-api-subtab { appearance:none; border:0; background:transparent; color:#475467; padding:10px 18px; border-radius:10px; font-weight:700; cursor:pointer; }
+.app-api-subtab:hover { background:#f5f7fa; }
+.app-api-subtab.is-active { background:var(--app-api-primary); color:#fff; box-shadow:0 6px 18px rgba(82,63,188,.18); }
+.app-api-subtab-panel { display:none; }
+.app-api-subtab-panel.is-active { display:block; }
+#app-api-product-detail-active-sections:empty:after { content:"همه بخش‌های جزئیات محصول غیرفعال هستند."; display:block; padding:18px; color:var(--app-api-muted); text-align:center; border:1px dashed var(--app-api-border); border-radius:11px; }
+.app-api-detail-section-card .app-api-subcard + .app-api-subcard { margin-top:14px; }
+.app-api-products-intro .app-api-endpoint-list { grid-template-columns:1fr; }

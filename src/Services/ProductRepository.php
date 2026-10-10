@@ -28,6 +28,10 @@ final class ProductRepository {
 			'app_api_query_token'    => $this->query_token,
 		);
 
+		if ( ! empty( $params['exclude'] ) ) {
+			$args['post__not_in'] = array_values( array_filter( array_map( 'absint', (array) $params['exclude'] ) ) );
+		}
+
 		$tax_query = $this->build_tax_query( $params );
 		if ( $tax_query ) {
 			$args['tax_query'] = $tax_query; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
@@ -159,7 +163,7 @@ final class ProductRepository {
 				$primary = "{$lookup_alias}.average_rating {$order}";
 				break;
 			case 'popularity':
-			case 'cout_sales':
+			case 'count_sales':
 				$primary = "{$lookup_alias}.total_sales {$order}";
 				break;
 			case 'id':

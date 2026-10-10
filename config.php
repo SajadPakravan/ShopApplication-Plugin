@@ -15,6 +15,7 @@ final class Config {
 	public const OPTION_CACHE_VERSION       = 'app_api_home_cache_version';
 	public const OPTION_HOME_PRESET_VERSION = 'app_api_home_preset_version';
 	public const OPTION_HOME_ENDPOINT       = 'app_api_home_endpoint';
+	public const OPTION_PRODUCT_DETAIL_CONFIG = 'app_api_product_detail_configuration';
 
 	/**
 	 * Types the administrator can add from the visual home-page API builder.
@@ -59,7 +60,7 @@ final class Config {
 	 * Stable values accepted by action.orderby.
 	 */
 	public static function allowed_action_orderby(): array {
-		return array( 'date', 'price', 'popularity', 'rating', 'cout_sales' );
+		return array( 'date', 'price', 'popularity', 'rating', 'count_sales' );
 	}
 
 	public static function default_action( string $title = '', ?string $type = null ): array {
@@ -118,8 +119,8 @@ final class Config {
 		}
 
 		$orderby = sanitize_key( (string) ( $action['orderby'] ?? $action['action_orderby'] ?? 'date' ) );
-		if ( in_array( $orderby, array( 'count_sales', 'total_sales' ), true ) ) {
-			$orderby = 'cout_sales';
+		if ( in_array( $orderby, array( 'cout_sales', 'total_sales' ), true ) ) {
+			$orderby = 'count_sales';
 		}
 		if ( ! in_array( $orderby, self::allowed_action_orderby(), true ) ) {
 			$orderby = 'date';
@@ -459,6 +460,102 @@ final class Config {
 			return array();
 		}
 		return array_values( array_unique( array_filter( array_map( 'absint', $value ) ) ) );
+	}
+
+	public static function product_detail_configuration(): array {
+		$saved = get_option( self::OPTION_PRODUCT_DETAIL_CONFIG, null );
+		if ( ! is_array( $saved ) || empty( $saved['sections'] ) ) {
+			$saved = self::default_product_detail_configuration();
+		}
+		return self::normalize_product_detail_configuration( $saved );
+	}
+
+	public static function default_product_detail_configuration(): array {
+		return array(
+			'order' => array( 'related_products', 'reviews' ),
+			'sections' => array(
+				'related_products' => array(
+					'id' => 'related_products',
+					'type' => 'products',
+					'enabled' => true,
+					'title' => 'محصولات مرتبط',
+					'subtitle' => '',
+					'layout' => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
+					'per_page' => 10,
+					'on_sale' => false,
+					'view_all_enabled' => true,
+					'view_all_title' => 'مشاهده همه',
+					'view_all_orderby' => 'date',
+					'view_all_order' => 'desc',
+				),
+				'reviews' => array(
+					'id' => 'reviews',
+					'type' => 'reviews',
+					'enabled' => true,
+					'title' => 'نظرات کاربران',
+					'subtitle' => '',
+					'layout' => array( 'direction' => 'vertical', 'rows' => 1, 'columns' => 1 ),
+					'per_page' => 10,
+					'view_all_enabled' => true,
+					'view_all_title' => 'مشاهده همه',
+					'view_all_orderby' => 'date',
+					'view_all_order' => 'desc',
+				),
+			),
+		);
+	}
+
+	public static function normalize_product_detail_configuration( array $configuration ): array {
+		$defaults = self::default_product_detail_configuration();
+		$raw_sections = isset( $configuration['sections'] ) && is_array( $configuration['sections'] ) ? $configuration['sections'] : array();
+		$sections = array();
+		foreach ( $defaults['sections'] as $key => $default ) {
+			$raw = isset( $raw_sections[ $key ] ) && is_array( $raw_sections[ $key ] ) ? $raw_sections[ $key ] : array();
+			$layout = isset( $raw['layout'] ) && is_array( $raw['layout'] ) ? $raw['layout'] : array();
+			$section = array(
+				'id' => self::sanitize_api_id( (string) ( $raw['id'] ?? $default['id'] ), $default['id'] ),
+				'type' => $default['type'],
+				'enabled' => array_key_exists( 'enabled', $raw ) ? ! empty( $raw['enabled'] ) : true,
+				'title' => sanitize_text_field( (string) ( $raw['title'] ?? $default['title'] ) ),
+				'subtitle' => sanitize_text_field( (string) ( $raw['subtitle'] ?? '' ) ),
+				'layout' => array(
+					'direction' => in_array( $layout['direction'] ?? '', array( 'horizontal', 'vertical' ), true ) ? $layout['direction'] : $default['layout']['direction'],
+					'rows' => self::positive_int( $layout['rows'] ?? 1, 12 ),
+					'columns' => self::positive_int( $layout['columns'] ?? 1, 12 ),
+				),
+				'per_page' => min( 50, max( 1, absint( $raw['per_page'] ?? $default['per_page'] ) ?: 10 ) ),
+				'view_all_enabled' => array_key_exists( 'view_all_enabled', $raw ) ? ! empty( $raw['view_all_enabled'] ) : true,
+				'view_all_title' => sanitize_text_field( (string) ( $raw['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه',
+				'view_all_orderby' => sanitize_key( (string) ( $raw['view_all_orderby'] ?? 'date' ) ),
+				'view_all_order' => in_array( strtolower( (string) ( $raw['view_all_order'] ?? 'desc' ) ), array( 'asc', 'desc' ), true ) ? strtolower( (string) $raw['view_all_order'] ) : 'desc',
+			);
+			if ( 'related_products' === $key ) {
+				$section['on_sale'] = ! empty( $raw['on_sale'] );
+				if ( ! in_array( $section['view_all_orderby'], self::allowed_action_orderby(), true ) ) {
+					$section['view_all_orderby'] = 'date';
+				}
+			} else {
+				if ( ! in_array( $section['view_all_orderby'], array( 'date', 'rating' ), true ) ) {
+					$section['view_all_orderby'] = 'date';
+				}
+			}
+			$sections[ $key ] = $section;
+		}
+
+		$order = array();
+		$raw_order = isset( $configuration['order'] ) && is_array( $configuration['order'] ) ? $configuration['order'] : explode( ',', (string) ( $configuration['order'] ?? '' ) );
+		foreach ( $raw_order as $key ) {
+			$key = sanitize_key( (string) $key );
+			if ( isset( $sections[ $key ] ) && ! in_array( $key, $order, true ) ) {
+				$order[] = $key;
+			}
+		}
+		foreach ( array_keys( $sections ) as $key ) {
+			if ( ! in_array( $key, $order, true ) ) {
+				$order[] = $key;
+			}
+		}
+		return array( 'order' => $order, 'sections' => $sections );
 	}
 
 	public static function home_endpoint(): string {

@@ -1,6 +1,6 @@
-# Application API v2.3.3
+# Application API v2.4.0
 
-## Products
+## Product list
 
 `GET /wp-json/app-api/v1/products`
 
@@ -9,55 +9,52 @@ Supported query parameters:
 - `page`
 - `per_page`
 - `search`
-- `category` (one ID or comma-separated IDs)
-- `brand` (one ID or comma-separated IDs)
-- `attributes` (attribute/option filters)
+- `category`
+- `brand`
+- `attributes`
 - `min_price`
 - `max_price`
 - `on_sale`
-- `orderby`
-- `order`
+- `orderby`: `date`, `price`, `rating`, `popularity`, `count_sales`, `id`, `title`
+- `order`: `asc`, `desc`
 
-Recommended attribute query syntax:
-
-```text
-?attributes[1]=118,119&attributes[18]=209,238
-```
-
-Within the same attribute, selected option IDs use OR semantics. Separate attributes use AND semantics.
-
-The response contains:
-
-- `pagination`
-- `filters.categories`
-- `filters.brands`
-- `filters.attributes`
-- `filter_by`
-- `data`
-
-`filter_by.attributes` uses this shape:
+Product cards use one shared contract in the product list, Home product sections, and related-product sections:
 
 ```json
-[
-  {"id": 1, "options": [118, 119]},
-  {"id": 18, "options": [209, 238]}
-]
+{
+  "id": 2440,
+  "name": "",
+  "price": 5700000,
+  "regular_price": 5700000,
+  "discount_percent": 0,
+  "stock_quantity": 1,
+  "image": "",
+  "variation_name": "",
+  "total_sales": 0,
+  "average_rating": "3.5",
+  "categories": [
+    {"id": 197, "name": "خنک‌کننده پردازنده", "image": ""}
+  ],
+  "brand": {"id": 364, "name": "", "image": ""},
+  "colors": ["#000000", "#ffffff"]
+}
 ```
-
-Each product-list item contains the compact card fields plus `total_sales`, numeric `average_rating`, `category`, `brand`, and filterable `attributes`. Category/brand objects and attribute option objects expose only `id` and `name`.
 
 ## Product detail
 
 `GET /wp-json/app-api/v1/products/{id}`
 
+Variable attributes are grouped in `variations`. Each option represents an actual published WooCommerce variation and exposes its variation ID, option name, SKU, swatch color/image, price, stock, discount and product image. `default_variation` is only the numeric variation ID.
+
+Configurable detail-page sections are returned in `data.sections`. The built-in sections are:
+
+- related products (`type: products`)
+- customer reviews (`type: reviews`)
+
+Their active state and order are configurable from **Application API → Products → Product detail**.
+
 ## Home
 
 `GET /wp-json/app-api/v1/{configured-home-endpoint}`
 
-Post-section dates are returned as Solar Hijri dates in `YYYY-MM-DD` format with no time component.
-
-
-## Changes in 2.3.3
-
-- Product-list items now use `categories` instead of `category`.
-- Each category entry in `filters.categories` includes a numeric `count` of published products assigned to that category.
+Home product sections use the same product-card contract as the product list. Post entries include a Solar Hijri `date` and a `categories` list after it.

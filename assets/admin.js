@@ -55,6 +55,23 @@
 			handle: '.app-api-item-drag',
 			placeholder: 'app-api-repeater-item ui-sortable-placeholder'
 		});
+		$('#app-api-product-detail-active-sections').sortable({
+			handle: '.app-api-detail-drag-handle',
+			placeholder: 'app-api-order-item ui-sortable-placeholder',
+			update: updateDetailOrderInput
+		});
+	}
+
+	function updateDetailOrderInput() {
+		var ordered = [];
+		$('#app-api-product-detail-active-sections .app-api-order-item').each(function () {
+			ordered.push(String($(this).data('detail-section-id')));
+		});
+		$('#app-api-product-detail-toggles .app-api-toggle').each(function () {
+			var key = String($(this).data('detail-toggle'));
+			if (ordered.indexOf(key) === -1) { ordered.push(key); }
+		});
+		$('#app-api-product-detail-order').val(ordered.join(','));
 	}
 
 	function actionOptions() {
@@ -75,7 +92,7 @@
 			price: 'قیمت',
 			popularity: 'محبوبیت',
 			rating: 'امتیاز',
-			cout_sales: 'تعداد فروش'
+			count_sales: 'تعداد فروش'
 		};
 		return Object.keys(options).map(function (key) {
 			return '<option value="' + key + '">' + options[key] + '</option>';
@@ -321,6 +338,15 @@
 			$('.app-api-tab-panel[data-panel="' + tab + '"]').addClass('is-active');
 		});
 
+		$(document).on('click', '.app-api-subtab', function () {
+			var $tabs = $(this).closest('.app-api-inner-tabs');
+			var tab = $(this).data('subtab');
+			$tabs.find('.app-api-subtab').removeClass('is-active');
+			$(this).addClass('is-active');
+			$tabs.find('.app-api-subtab-panel').removeClass('is-active');
+			$tabs.find('.app-api-subtab-panel[data-subpanel="' + tab + '"]').addClass('is-active');
+		});
+
 		$('#app-api-add-section').on('click', function () {
 			var type = $('#app-api-new-section-type').val() || 'products';
 			var key = 'section_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
@@ -416,6 +442,43 @@
 			syncViewAll($(this));
 		});
 
+		$(document).on('change', '.app-api-detail-enabled', function () {
+			var $toggle = $(this).closest('.app-api-toggle');
+			var key = String($toggle.data('detail-toggle'));
+			var $card = $('.app-api-detail-section-card[data-detail-section-card="' + key + '"]');
+			if (this.checked) {
+				if (!$('#app-api-product-detail-active-sections .app-api-order-item[data-detail-section-id="' + key + '"]').length) {
+					var label = $toggle.data('label') || key;
+					$('#app-api-product-detail-active-sections').append('<li class="app-api-order-item" data-detail-section-id="' + escapeHtml(key) + '"><span class="dashicons dashicons-move app-api-detail-drag-handle"></span><div class="app-api-order-name"><strong>' + escapeHtml(label) + '</strong></div><div class="app-api-order-actions"><button type="button" class="button app-api-detail-move-up"><span class="dashicons dashicons-arrow-up-alt2"></span></button><button type="button" class="button app-api-detail-move-down"><span class="dashicons dashicons-arrow-down-alt2"></span></button></div></li>');
+				}
+				$card.removeClass('is-disabled').find('.app-api-status').first().text('فعال');
+			} else {
+				$('#app-api-product-detail-active-sections .app-api-order-item[data-detail-section-id="' + key + '"]').remove();
+				$card.addClass('is-disabled').find('.app-api-status').first().text('غیرفعال');
+			}
+			updateDetailOrderInput();
+		});
+
+		$(document).on('click', '.app-api-detail-move-up', function () {
+			var $item = $(this).closest('.app-api-order-item');
+			if ($item.prev().length) { $item.prev().before($item); }
+			updateDetailOrderInput();
+		});
+		$(document).on('click', '.app-api-detail-move-down', function () {
+			var $item = $(this).closest('.app-api-order-item');
+			if ($item.next().length) { $item.next().after($item); }
+			updateDetailOrderInput();
+		});
+
+		$(document).on('input', '.app-api-detail-section-title', function () {
+			var $card = $(this).closest('.app-api-detail-section-card');
+			var key = String($card.data('detail-section-card'));
+			var label = $.trim($(this).val() || '') || key;
+			$card.find('.app-api-card-label').first().text(label);
+			$('.app-api-toggle[data-detail-toggle="' + key + '"]').attr('data-label', label).find('.app-api-toggle-label').text(label);
+			$('#app-api-product-detail-active-sections .app-api-order-item[data-detail-section-id="' + key + '"] strong').text(label);
+		});
+
 		$(document).on('input', '.app-api-image-item-title', function () {
 			var title = $(this).val() || 'آیتم بدون عنوان';
 			var $item = $(this).closest('.app-api-repeater-item');
@@ -457,5 +520,7 @@
 				setTypePanelState($card, $card.find('.app-api-section-type-select').first().val());
 			});
 		});
+
+		$('#app-api-product-detail-form').on('submit', function () { updateDetailOrderInput(); });
 	});
 })(jQuery);

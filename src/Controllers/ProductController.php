@@ -3,6 +3,7 @@
 namespace AppAPI\Controllers;
 
 use AppAPI\Config;
+use AppAPI\Services\ProductDetailBuilder;
 use AppAPI\Services\ProductFilterBuilder;
 use AppAPI\Services\ProductFormatter;
 use AppAPI\Services\ProductRepository;
@@ -101,10 +102,13 @@ final class ProductController {
 			);
 		}
 
+		$data = $this->formatter->format_detail( $product, $this->repository->lookup( $product->get_id() ) );
+		$data['sections'] = ( new ProductDetailBuilder( $this->repository, $this->formatter ) )->build( $product );
+
 		return Response::success(
 			array(
 				'success' => true,
-				'data'    => $this->formatter->format_detail( $product, $this->repository->lookup( $product->get_id() ) ),
+				'data'    => $data,
 			)
 		);
 	}
@@ -113,10 +117,7 @@ final class ProductController {
 		$orderby = sanitize_key( (string) ( $request->get_param( 'orderby' ) ?: 'date' ) );
 		$order   = strtolower( sanitize_key( (string) ( $request->get_param( 'order' ) ?: 'desc' ) ) );
 
-		$allowed_orderby = array( 'price', 'date', 'rating', 'id', 'title', 'popularity', 'cout_sales', 'count_sales' );
-		if ( 'count_sales' === $orderby ) {
-			$orderby = 'cout_sales';
-		}
+		$allowed_orderby = array( 'price', 'date', 'rating', 'id', 'title', 'popularity', 'count_sales' );
 		if ( ! in_array( $orderby, $allowed_orderby, true ) ) {
 			$orderby = 'date';
 		}

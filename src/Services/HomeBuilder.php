@@ -316,14 +316,29 @@ final class HomeBuilder {
 			$thumbnail_id = get_post_thumbnail_id( $post );
 			$excerpt      = has_excerpt( $post ) ? $post->post_excerpt : wp_trim_words( wp_strip_all_tags( strip_shortcodes( $post->post_content ) ), 24, '…' );
 			$result[] = array(
-				'id'      => (int) $post->ID,
-				'title'   => get_the_title( $post ),
-				'excerpt' => wp_strip_all_tags( $excerpt ),
-				'image'   => $thumbnail_id ? Taxonomy::attachment_image_url( (int) $thumbnail_id ) : '',
-				'date'    => $this->jalali_date( (string) $post->post_date ),
+				'id'         => (int) $post->ID,
+				'title'      => get_the_title( $post ),
+				'excerpt'    => wp_strip_all_tags( $excerpt ),
+				'image'      => $thumbnail_id ? Taxonomy::attachment_image_url( (int) $thumbnail_id ) : '',
+				'date'       => $this->jalali_date( (string) $post->post_date ),
+				'categories' => $this->post_categories( (int) $post->ID ),
 			);
 		}
 
+		return $result;
+	}
+
+	private function post_categories( int $post_id ): array {
+		$terms = wp_get_post_terms( $post_id, 'category' );
+		if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
+			return array();
+		}
+		$result = array();
+		foreach ( $terms as $term ) {
+			if ( $term instanceof \WP_Term ) {
+				$result[] = array( 'id' => (int) $term->term_id, 'name' => (string) $term->name );
+			}
+		}
 		return $result;
 	}
 
