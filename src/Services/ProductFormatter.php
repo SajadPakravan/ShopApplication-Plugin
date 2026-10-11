@@ -76,7 +76,7 @@ final class ProductFormatter {
 			'rating_count'      => (int) $product->get_rating_count(),
 			'review_count'      => (int) $product->get_review_count(),
 			'total_sales'       => (int) $product->get_total_sales(),
-			'categories'        => Taxonomy::terms_with_images( $product->get_id(), 'product_cat' ),
+			'categories'        => Taxonomy::product_category_hierarchy( $product->get_id() ),
 			'brand'             => $brand_taxonomy ? Taxonomy::first_term_with_image( $product->get_id(), $brand_taxonomy ) : array( 'id' => 0, 'name' => '', 'image' => '' ),
 			'tags'              => Taxonomy::terms( $product->get_id(), 'product_tag' ),
 			'gallery'           => $this->gallery( $product, $presentation ),

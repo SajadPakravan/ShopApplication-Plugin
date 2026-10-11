@@ -336,6 +336,80 @@ final class Taxonomy {
 		return '';
 	}
 
+
+	/**
+	 * Product categories ordered as hierarchy paths: ancestors first and the
+	 * categories directly assigned to the product at the end. Duplicate ancestors
+	 * are removed while preserving the first hierarchical occurrence.
+	 */
+	public static function product_category_hierarchy( int $product_id ): array {
+		$terms = wp_get_post_terms( $product_id, 'product_cat' );
+		if ( is_wp_error( $terms ) || ! is_array( $terms ) || ! $terms ) {
+			return array();
+		}
+
+		$assigned = array();
+		foreach ( $terms as $term ) {
+			if ( $term instanceof \WP_Term ) {
+				$assigned[ (int) $term->term_id ] = $term;
+			}
+		}
+		if ( ! $assigned ) {
+			return array();
+		}
+
+		$ancestor_ids = array();
+		$seen         = array();
+		foreach ( $assigned as $term ) {
+			$ancestors = array_reverse( array_map( 'absint', get_ancestors( $term->term_id, 'product_cat', 'taxonomy' ) ) );
+			foreach ( $ancestors as $ancestor_id ) {
+				if ( isset( $assigned[ $ancestor_id ] ) || isset( $seen[ $ancestor_id ] ) ) {
+					continue;
+				}
+				$seen[ $ancestor_id ] = true;
+				$ancestor_ids[]       = $ancestor_id;
+			}
+		}
+
+		$result = array();
+		foreach ( $ancestor_ids as $term_id ) {
+			$term = get_term( $term_id, 'product_cat' );
+			if ( $term instanceof \WP_Term ) {
+				$result[] = array(
+					'id'    => (int) $term->term_id,
+					'name'  => (string) $term->name,
+					'image' => self::term_image_url( $term ),
+				);
+			}
+		}
+
+		// Directly assigned terms are appended after their parent hierarchy. The
+		// deepest assigned categories are placed last, which keeps the leaf category
+		// at the end of the list for breadcrumb-style rendering.
+		$assigned_terms = array_values( $assigned );
+		usort(
+			$assigned_terms,
+			static function ( \WP_Term $a, \WP_Term $b ): int {
+				$depth_a = count( get_ancestors( $a->term_id, 'product_cat', 'taxonomy' ) );
+				$depth_b = count( get_ancestors( $b->term_id, 'product_cat', 'taxonomy' ) );
+				if ( $depth_a === $depth_b ) {
+					return $a->term_id <=> $b->term_id;
+				}
+				return $depth_a <=> $depth_b;
+			}
+		);
+
+		foreach ( $assigned_terms as $term ) {
+			$result[] = array(
+				'id'    => (int) $term->term_id,
+				'name'  => (string) $term->name,
+				'image' => self::term_image_url( $term ),
+			);
+		}
+
+		return $result;
+	}
+
 	/**
 	 * Recounts published parent products for taxonomy terms in one SQL query.
 	 * This avoids relying on stale term->count values from third-party brand taxonomies.

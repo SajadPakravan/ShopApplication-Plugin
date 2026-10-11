@@ -6,20 +6,17 @@ use AppAPI\Config;
 use AppAPI\Support\Request;
 use AppAPI\Support\Taxonomy;
 
-
 defined( 'ABSPATH' ) || exit;
 
 final class CategoryPageBuilder {
-	private $repository;
 	private $formatter;
 
-	public function __construct( ?ProductRepository $repository = null, ?ProductFormatter $formatter = null ) {
-		$this->repository = $repository ?: new ProductRepository();
-		$this->formatter  = $formatter ?: new ProductFormatter();
+	public function __construct( ?ProductFormatter $formatter = null ) {
+		$this->formatter = $formatter ?: new ProductFormatter();
 	}
 
-	public function build( \WP_Term $category ): array {
-		$config   = Config::category_page_configuration();
+	public function build( int $current_category_id ): array {
+		$config   = Config::category_configuration();
 		$sections = array();
 		$position = 0;
 
@@ -27,18 +24,20 @@ final class CategoryPageBuilder {
 			if ( empty( $config['sections'][ $key ] ) || empty( $config['sections'][ $key ]['enabled'] ) ) {
 				continue;
 			}
-			$resolved = $this->resolve_section( $config['sections'][ $key ], $position, $category );
+			$section = $config['sections'][ $key ];
+			$resolved = $this->resolve_section( $section, $position, $current_category_id );
 			if ( null !== $resolved ) {
 				$sections[] = $resolved;
 				++$position;
 			}
 		}
+
 		return $sections;
 	}
 
-	private function resolve_section( array $section, int $position, \WP_Term $page_category ): ?array {
+	private function resolve_section( array $section, int $position, int $current_category_id ): ?array {
 		$type = sanitize_key( (string) ( $section['type'] ?? '' ) );
-		if ( ! in_array( $type, Config::allowed_category_section_types(), true ) ) {
+		if ( ! array_key_exists( $type, Config::category_section_types() ) ) {
 			return null;
 		}
 		$layout = isset( $section['layout'] ) && is_array( $section['layout'] ) ? $section['layout'] : array();
@@ -60,51 +59,51 @@ final class CategoryPageBuilder {
 			return $base;
 		}
 		if ( 'product' === $type ) {
-			$product_id = absint( $section['product_id'] ?? 0 );
-			$product    = $product_id ? wc_get_product( $product_id ) : false;
-			$base['data'] = array();
-			if ( $product instanceof \WC_Product && ! $product->is_type( 'variation' ) && 'publish' === get_post_status( $product_id ) ) {
-				$base['data'][] = $this->formatter->format_card( $product, $this->repository->lookup( $product_id ) );
-			}
+			$base['data'] = $this->product_item( absint( $section['product_id'] ?? 0 ) );
 			return $base;
 		}
 		if ( 'category' === $type ) {
-			$base['data'] = $this->categories( $section );
-			if ( ! empty( $section['view_all_enabled'] ) ) {
-				$title = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
-				$base['view_all'] = array(
-					'title'  => $title,
-					'action' => Config::normalize_view_all_action( 'category', $section['view_all_action'] ?? array(), $title ),
-				);
-			}
+			$base['data'] = $this->category_items( $section );
 			return $base;
 		}
 		return null;
 	}
 
 	private function image_items( array $section ): array {
-		$items = isset( $section['data'] ) && is_array( $section['data'] ) ? $section['data'] : array();
 		$result = array();
-		foreach ( $items as $item ) {
-			if ( ! is_array( $item ) ) { continue; }
-			$title = sanitize_text_field( (string) ( $item['title'] ?? '' ) );
+		foreach ( (array) ( $section['data'] ?? array() ) as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
 			$image = '';
 			if ( ! empty( $item['attachment_id'] ) ) {
 				$image = Taxonomy::attachment_image_url( absint( $item['attachment_id'] ) );
 			} elseif ( ! empty( $item['image'] ) ) {
 				$image = esc_url_raw( (string) $item['image'] );
 			}
+			$title = sanitize_text_field( (string) ( $item['title'] ?? '' ) );
 			$result[] = array(
 				'title'    => $title,
 				'subtitle' => sanitize_text_field( (string) ( $item['subtitle'] ?? '' ) ),
-				'image'    => $image ?: '',
+				'image'    => $image,
 				'action'   => Config::normalize_action( $item['action'] ?? array(), $title ),
 			);
 		}
 		return $result;
 	}
 
-	private function categories( array $section ): array {
+	private function product_item( int $product_id ): array {
+		if ( ! $product_id ) {
+			return array();
+		}
+		$product = wc_get_product( $product_id );
+		if ( ! $product instanceof \WC_Product || 'publish' !== get_post_status( $product_id ) || $product->is_type( 'variation' ) ) {
+			return array();
+		}
+		return array( $this->formatter->format_card( $product ) );
+	}
+
+	private function category_items( array $section ): array {
 		$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
 		$args = array(
 			'taxonomy'   => 'product_cat',
@@ -117,18 +116,24 @@ final class CategoryPageBuilder {
 			$args['order']    = 'ASC';
 		} else {
 			$include = Request::ids( $section['include'] ?? array() );
-			if ( ! $include ) { return array(); }
+			if ( ! $include ) {
+				return array();
+			}
 			$args['include'] = $include;
 			$args['orderby'] = 'include';
 			$args['number']  = count( $include );
 		}
 		$terms = get_terms( $args );
-		if ( is_wp_error( $terms ) || ! is_array( $terms ) ) { return array(); }
-		$ids = array_map( static function ( $term ) { return $term instanceof \WP_Term ? (int) $term->term_id : 0; }, $terms );
-		$counts = Taxonomy::published_product_counts( 'product_cat', array_values( array_filter( $ids ) ) );
+		if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
+			return array();
+		}
+		$ids    = wp_list_pluck( $terms, 'term_id' );
+		$counts = Taxonomy::published_product_counts( 'product_cat', array_map( 'absint', $ids ) );
 		$result = array();
 		foreach ( $terms as $term ) {
-			if ( ! $term instanceof \WP_Term ) { continue; }
+			if ( ! $term instanceof \WP_Term ) {
+				continue;
+			}
 			$result[] = array(
 				'id'    => (int) $term->term_id,
 				'name'  => (string) $term->name,

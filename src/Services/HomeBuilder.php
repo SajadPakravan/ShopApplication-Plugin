@@ -467,21 +467,72 @@ final class HomeBuilder {
 			return null;
 		}
 
-		$title  = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
-		$action = isset( $section['view_all_action'] ) && is_array( $section['view_all_action'] )
-			? $section['view_all_action']
-			: array();
-		$type = sanitize_key( (string) ( $section['type'] ?? '' ) );
-		$resolved = Config::normalize_view_all_action( $type, $action, $title );
-
-		if ( 'posts' === $type ) {
-			unset( $resolved['on_sale'] );
-		}
+		$title = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) );
+		$title = '' !== trim( $title ) ? $title : 'مشاهده همه';
 
 		return array(
 			'title'  => $title,
-			'action' => $resolved,
+			'action' => $this->derived_view_all_action( $section, $title ),
 		);
+	}
+
+	/**
+	 * View-all actions are derived from the section itself. The administrator only
+	 * controls whether the button is enabled and its visible title; source filters
+	 * are never entered twice.
+	 */
+	private function derived_view_all_action( array $section, string $title ): array {
+		$type = sanitize_key( (string) ( $section['type'] ?? '' ) );
+		$action = array(
+			'title'          => $title,
+			'type'           => 'all',
+			'destination_id' => null,
+			'on_sale'        => null,
+			'url'            => null,
+			'orderby'        => 'date',
+			'order'          => 'desc',
+		);
+
+		if ( 'products' === $type ) {
+			$categories = Request::ids( $section['category'] ?? array() );
+			$brands     = Request::ids( $section['brand'] ?? array() );
+			$action['type']           = 'all';
+			$action['destination_id'] = $categories[0] ?? ( $brands[0] ?? null );
+			$action['on_sale']        = ! empty( $section['on_sale'] );
+			return $action;
+		}
+
+		if ( 'category' === $type ) {
+			$action['type'] = 'category';
+			$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
+			if ( 'parent' === $source ) {
+				$parent_id = absint( $section['parent_category'] ?? 0 );
+				$action['destination_id'] = $parent_id ?: null;
+			} else {
+				$include = Request::ids( $section['include'] ?? array() );
+				$action['destination_id'] = $include[0] ?? null;
+			}
+			return $action;
+		}
+
+		if ( 'brand' === $type ) {
+			$action['type'] = 'brand';
+			$include = Request::ids( $section['include'] ?? array() );
+			$action['destination_id'] = $include[0] ?? null;
+			return $action;
+		}
+
+		if ( 'posts' === $type ) {
+			$categories = Request::ids( $section['category'] ?? array() );
+			if ( $categories ) {
+				$action['type'] = 'category';
+				$action['destination_id'] = $categories[0];
+			}
+			unset( $action['on_sale'] );
+			return $action;
+		}
+
+		return $action;
 	}
 
 	private function resolve_action( array $action, string $title ): array {

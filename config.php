@@ -35,23 +35,6 @@ final class Config {
 		return array_keys( self::addable_section_types() );
 	}
 
-	public static function addable_category_section_types(): array {
-		return array(
-			'image'    => 'تصویر',
-			'product'  => 'محصول',
-			'category' => 'دسته‌بندی',
-		);
-	}
-
-	public static function allowed_category_section_types(): array {
-		return array_keys( self::addable_category_section_types() );
-	}
-
-	public static function category_section_type_label( string $type ): string {
-		$labels = self::addable_category_section_types();
-		return $labels[ sanitize_key( $type ) ] ?? $type;
-	}
-
 	public static function section_type_label( string $type ): string {
 		$labels = self::addable_section_types();
 		return $labels[ sanitize_key( $type ) ] ?? $type;
@@ -480,6 +463,107 @@ final class Config {
 		return array_values( array_unique( array_filter( array_map( 'absint', $value ) ) ) );
 	}
 
+
+	public static function category_section_types(): array {
+		return array(
+			'image'    => 'تصویر',
+			'product'  => 'محصول',
+			'category' => 'دسته‌بندی',
+		);
+	}
+
+	public static function category_configuration(): array {
+		$saved = get_option( self::OPTION_CATEGORY_CONFIG, null );
+		if ( ! is_array( $saved ) ) {
+			$saved = self::default_category_configuration();
+		}
+		return self::normalize_category_configuration( $saved );
+	}
+
+	public static function default_category_configuration(): array {
+		return array( 'order' => array(), 'sections' => array() );
+	}
+
+	public static function new_category_section_defaults( string $type, string $key = '' ): array {
+		$types = self::category_section_types();
+		$type  = isset( $types[ sanitize_key( $type ) ] ) ? sanitize_key( $type ) : 'image';
+		$key   = sanitize_key( $key );
+		$id    = $key ?: $type . '_section';
+		$section = array(
+			'id'       => $id,
+			'type'     => $type,
+			'enabled'  => true,
+			'title'    => '',
+			'subtitle' => '',
+			'layout'   => self::default_layout_for_type( $type ),
+		);
+		if ( 'image' === $type ) {
+			$section['data'] = array();
+		} elseif ( 'product' === $type ) {
+			$section['product_id'] = 0;
+		} elseif ( 'category' === $type ) {
+			$section['category_source'] = 'custom';
+			$section['include']         = array();
+		}
+		return $section;
+	}
+
+	public static function normalize_category_configuration( array $configuration ): array {
+		$raw_sections = isset( $configuration['sections'] ) && is_array( $configuration['sections'] ) ? $configuration['sections'] : array();
+		$sections     = array();
+		$allowed      = self::category_section_types();
+
+		foreach ( $raw_sections as $key => $raw ) {
+			if ( ! is_array( $raw ) ) {
+				continue;
+			}
+			$key  = sanitize_key( (string) $key );
+			$type = sanitize_key( (string) ( $raw['type'] ?? '' ) );
+			if ( ! $key || ! isset( $allowed[ $type ] ) ) {
+				continue;
+			}
+			$layout = isset( $raw['layout'] ) && is_array( $raw['layout'] ) ? $raw['layout'] : array();
+			$section = array(
+				'id'       => self::sanitize_api_id( (string) ( $raw['id'] ?? $key ), $key ),
+				'type'     => $type,
+				'enabled'  => ! empty( $raw['enabled'] ),
+				'title'    => sanitize_text_field( (string) ( $raw['title'] ?? '' ) ),
+				'subtitle' => sanitize_text_field( (string) ( $raw['subtitle'] ?? '' ) ),
+				'layout'   => array(
+					'direction' => in_array( $layout['direction'] ?? '', array( 'horizontal', 'vertical' ), true ) ? $layout['direction'] : 'horizontal',
+					'rows'      => self::positive_int( $layout['rows'] ?? 1, 12 ),
+					'columns'   => self::positive_int( $layout['columns'] ?? 1, 12 ),
+				),
+			);
+			if ( 'image' === $type ) {
+				$section['data'] = isset( $raw['data'] ) && is_array( $raw['data'] ) ? $raw['data'] : array();
+			} elseif ( 'product' === $type ) {
+				$section['product_id'] = absint( $raw['product_id'] ?? 0 );
+			} else {
+				$source = sanitize_key( (string) ( $raw['category_source'] ?? 'custom' ) );
+				$section['category_source'] = in_array( $source, array( 'custom', 'parents' ), true ) ? $source : 'custom';
+				$section['include'] = self::ids( $raw['include'] ?? array() );
+			}
+			$sections[ $key ] = $section;
+		}
+
+		$order_value = $configuration['order'] ?? array();
+		$order_raw   = is_array( $order_value ) ? $order_value : explode( ',', (string) $order_value );
+		$order       = array();
+		foreach ( $order_raw as $key ) {
+			$key = sanitize_key( (string) $key );
+			if ( isset( $sections[ $key ] ) && ! in_array( $key, $order, true ) ) {
+				$order[] = $key;
+			}
+		}
+		foreach ( array_keys( $sections ) as $key ) {
+			if ( ! in_array( $key, $order, true ) ) {
+				$order[] = $key;
+			}
+		}
+		return array( 'order' => $order, 'sections' => $sections );
+	}
+
 	public static function product_detail_configuration(): array {
 		$saved = get_option( self::OPTION_PRODUCT_DETAIL_CONFIG, null );
 		if ( ! is_array( $saved ) || empty( $saved['sections'] ) ) {
@@ -490,20 +574,8 @@ final class Config {
 
 	public static function default_product_detail_configuration(): array {
 		return array(
+			'order' => array( 'reviews', 'related_products' ),
 			'sections' => array(
-				'reviews' => array(
-					'id' => 'reviews',
-					'type' => 'reviews',
-					'enabled' => true,
-					'title' => 'نظرات کاربران',
-					'subtitle' => '',
-					'layout' => array( 'direction' => 'vertical', 'rows' => 1, 'columns' => 1 ),
-					'per_page' => 10,
-					'view_all_enabled' => true,
-					'view_all_title' => 'مشاهده همه',
-					'view_all_orderby' => 'date',
-					'view_all_order' => 'desc',
-				),
 				'related_products' => array(
 					'id' => 'related_products',
 					'type' => 'products',
@@ -513,6 +585,19 @@ final class Config {
 					'layout' => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
 					'per_page' => 10,
 					'on_sale' => false,
+					'view_all_enabled' => true,
+					'view_all_title' => 'مشاهده همه',
+					'view_all_orderby' => 'date',
+					'view_all_order' => 'desc',
+				),
+				'reviews' => array(
+					'id' => 'reviews',
+					'type' => 'reviews',
+					'enabled' => true,
+					'title' => 'نظرات کاربران',
+					'subtitle' => '',
+					'layout' => array( 'direction' => 'vertical', 'rows' => 1, 'columns' => 1 ),
+					'per_page' => 10,
 					'view_all_enabled' => true,
 					'view_all_title' => 'مشاهده همه',
 					'view_all_orderby' => 'date',
@@ -551,105 +636,16 @@ final class Config {
 				if ( ! in_array( $section['view_all_orderby'], self::allowed_action_orderby(), true ) ) {
 					$section['view_all_orderby'] = 'date';
 				}
-			} elseif ( ! in_array( $section['view_all_orderby'], array( 'date', 'rating' ), true ) ) {
-				$section['view_all_orderby'] = 'date';
+			} else {
+				if ( ! in_array( $section['view_all_orderby'], array( 'date', 'rating' ), true ) ) {
+					$section['view_all_orderby'] = 'date';
+				}
 			}
 			$sections[ $key ] = $section;
 		}
-		return array( 'sections' => $sections );
-	}
 
-	public static function category_page_configuration(): array {
-		$saved = get_option( self::OPTION_CATEGORY_CONFIG, null );
-		if ( ! is_array( $saved ) ) {
-			$saved = self::default_category_page_configuration();
-		}
-		return self::normalize_category_page_configuration( $saved );
-	}
-
-	public static function default_category_page_configuration(): array {
-		$first = self::new_category_section_defaults( 'category', 'category_list' );
-		$first['id'] = 'category_list';
-		$first['title'] = 'دسته‌بندی‌ها';
-		$first['category_source'] = 'parents';
-		return array(
-			'order' => array( 'category_list' ),
-			'sections' => array( 'category_list' => $first ),
-		);
-	}
-
-	public static function new_category_section_defaults( string $type, string $key = '' ): array {
-		$type = in_array( sanitize_key( $type ), self::allowed_category_section_types(), true ) ? sanitize_key( $type ) : 'category';
-		$key  = sanitize_key( $key );
-		$id   = $key ?: $type . '_section';
-		$section = array(
-			'id' => $id,
-			'type' => $type,
-			'enabled' => true,
-			'title' => '',
-			'subtitle' => '',
-			'layout' => self::default_layout_for_type( $type ),
-		);
-		if ( 'image' === $type ) {
-			$section['data'] = array();
-		} elseif ( 'product' === $type ) {
-			$section['product_id'] = 0;
-		} elseif ( 'category' === $type ) {
-			$section['category_source'] = 'custom';
-			$section['include'] = array();
-			$section['view_all_enabled'] = true;
-			$section['view_all_title'] = 'مشاهده همه';
-			$section['view_all_action'] = self::default_action( 'مشاهده همه', 'all' );
-		}
-		return $section;
-	}
-
-	public static function normalize_category_page_configuration( array $configuration ): array {
-		$raw_sections = isset( $configuration['sections'] ) && is_array( $configuration['sections'] ) ? $configuration['sections'] : array();
-		$raw_order = isset( $configuration['order'] ) ? $configuration['order'] : array();
-		$raw_order = is_array( $raw_order ) ? $raw_order : explode( ',', (string) $raw_order );
-		$sections = array();
-		foreach ( $raw_sections as $raw_key => $section ) {
-			if ( ! is_array( $section ) ) { continue; }
-			$key = sanitize_key( (string) $raw_key ) ?: 'section_' . ( count( $sections ) + 1 );
-			$type = sanitize_key( (string) ( $section['type'] ?? '' ) );
-			if ( ! in_array( $type, self::allowed_category_section_types(), true ) ) { continue; }
-			$layout = isset( $section['layout'] ) && is_array( $section['layout'] ) ? $section['layout'] : array();
-			$clean = array(
-				'id' => self::sanitize_api_id( (string) ( $section['id'] ?? $key ), $key ),
-				'type' => $type,
-				'enabled' => ! empty( $section['enabled'] ),
-				'title' => sanitize_text_field( (string) ( $section['title'] ?? '' ) ),
-				'subtitle' => sanitize_text_field( (string) ( $section['subtitle'] ?? '' ) ),
-				'layout' => array(
-					'direction' => in_array( $layout['direction'] ?? '', array( 'horizontal', 'vertical' ), true ) ? $layout['direction'] : 'horizontal',
-					'rows' => self::positive_int( $layout['rows'] ?? 1, 12 ),
-					'columns' => self::positive_int( $layout['columns'] ?? 1, 12 ),
-				),
-			);
-			if ( 'image' === $type ) {
-				$clean['data'] = self::normalize_image_items( $section['data'] ?? array() );
-			} elseif ( 'product' === $type ) {
-				$clean['product_id'] = absint( $section['product_id'] ?? 0 );
-			} elseif ( 'category' === $type ) {
-				$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
-				$clean['category_source'] = in_array( $source, array( 'custom', 'parents' ), true ) ? $source : 'custom';
-				$clean['include'] = self::ids( $section['include'] ?? array() );
-				$clean['view_all_enabled'] = array_key_exists( 'view_all_enabled', $section ) ? ! empty( $section['view_all_enabled'] ) : true;
-				$clean['view_all_title'] = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
-				$clean['view_all_action'] = self::normalize_view_all_action( 'category', $section['view_all_action'] ?? array(), $clean['view_all_title'] );
-			}
-			$sections[ $key ] = $clean;
-		}
-		$order = array();
-		foreach ( $raw_order as $key ) {
-			$key = sanitize_key( (string) $key );
-			if ( isset( $sections[ $key ] ) && ! in_array( $key, $order, true ) ) { $order[] = $key; }
-		}
-		foreach ( array_keys( $sections ) as $key ) {
-			if ( ! in_array( $key, $order, true ) ) { $order[] = $key; }
-		}
-		return array( 'order' => $order, 'sections' => $sections );
+		// Product detail order is semantic and fixed: reviews first, related products second.
+		return array( 'order' => array( 'reviews', 'related_products' ), 'sections' => $sections );
 	}
 
 	public static function home_endpoint(): string {
