@@ -73,13 +73,14 @@ final class ProductDetailBuilder {
 			$block['view_all'] = array(
 				'title'  => $title,
 				'action' => array(
-					'title'          => $title,
-					'type'           => 'all',
-					'destination_id' => $category_ids[0] ?? null,
-					'on_sale'        => ! empty( $section['on_sale'] ),
-					'url'            => null,
-					'orderby'        => 'date',
-					'order'          => 'desc',
+					'title'       => $title,
+					'type'        => 'category',
+					'category_id' => array_values( $category_ids ),
+					'brand_id'    => array(),
+					'on_sale'     => ! empty( $section['on_sale'] ),
+					'url'         => null,
+					'orderby'     => 'date',
+					'order'       => 'desc',
 				),
 			);
 		}
@@ -134,12 +135,13 @@ final class ProductDetailBuilder {
 			$block['view_all'] = array(
 				'title'  => $title,
 				'action' => array(
-					'title'          => $title,
-					'type'           => 'all',
-					'destination_id' => null,
-					'url'            => null,
-					'orderby'        => 'date',
-					'order'          => 'desc',
+					'title'       => $title,
+					'type'        => 'all',
+					'category_id' => array(),
+					'brand_id'    => array(),
+					'url'         => null,
+					'orderby'     => 'date',
+					'order'       => 'desc',
 				),
 			);
 		}

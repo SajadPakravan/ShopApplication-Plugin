@@ -148,33 +148,69 @@ final class Config {
 	 */
 	public static function normalize_view_all_action( string $section_type, $action, string $title = '' ): array {
 		$section_type = sanitize_key( $section_type );
-		$resolved     = self::normalize_action( $action, $title );
+		$action       = is_array( $action ) ? $action : array();
+		$title        = sanitize_text_field( $title );
+		$legacy       = self::normalize_action( $action, $title );
 
+		$category_ids = array();
+		$brand_ids    = array();
+
+		if ( isset( $action['category_id'] ) ) {
+			$category_ids = \AppAPI\Support\Request::ids( $action['category_id'] );
+		}
+		if ( isset( $action['brand_id'] ) ) {
+			$brand_ids = \AppAPI\Support\Request::ids( $action['brand_id'] );
+		}
+
+		// Migrate the legacy destination_id to the correctly typed array.
+		if ( ! $category_ids && ! $brand_ids && ! empty( $legacy['destination_id'] ) ) {
+			if ( 'brand' === $legacy['type'] ) {
+				$brand_ids = array( (int) $legacy['destination_id'] );
+			} elseif ( 'category' === $legacy['type'] ) {
+				$category_ids = array( (int) $legacy['destination_id'] );
+			}
+		}
+
+		$type = 'all';
 		switch ( $section_type ) {
-			case 'products':
-				if ( ! in_array( $resolved['type'], array( 'all', 'category', 'brand' ), true ) ) {
-					$resolved = self::default_action( $title, 'all' );
-				}
-				break;
-
 			case 'category':
-			case 'brand':
-				$orderby = $resolved['orderby'];
-				$order   = $resolved['order'];
-				$resolved = self::default_action( $title, 'all' );
-				$resolved['orderby'] = $orderby;
-				$resolved['order']   = $order;
+				$type = 'category';
 				break;
-
-			case 'posts':
-				if ( ! in_array( $resolved['type'], array( 'all', 'category' ), true ) ) {
-					$resolved = self::default_action( $title, 'all' );
+			case 'brand':
+				$type = 'brand';
+				break;
+			case 'products':
+				if ( $category_ids ) {
+					$type = 'category';
+				} elseif ( $brand_ids ) {
+					$type = 'brand';
 				}
-				$resolved['on_sale'] = null;
+				break;
+			case 'posts':
+				if ( $category_ids ) {
+					$type = 'category';
+				}
 				break;
 		}
 
-		return $resolved;
+		$orderby = $legacy['orderby'] ?? 'date';
+		$order   = $legacy['order'] ?? 'desc';
+		$result  = array(
+			'title'       => $title,
+			'type'        => $type,
+			'category_id' => array_values( $category_ids ),
+			'brand_id'    => array_values( $brand_ids ),
+			'on_sale'     => 'posts' === $section_type ? null : ( $legacy['on_sale'] ?? null ),
+			'url'         => null,
+			'orderby'     => $orderby,
+			'order'       => $order,
+		);
+
+		if ( 'posts' === $section_type ) {
+			unset( $result['on_sale'] );
+		}
+
+		return $result;
 	}
 
 	public static function home_configuration(): array {

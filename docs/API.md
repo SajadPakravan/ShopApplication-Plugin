@@ -1,4 +1,4 @@
-# Application API v2.5.1
+# Application API v2.5.2
 
 ## Product list
 
@@ -58,3 +58,23 @@ Their active state and order are configurable from **Application API → Product
 `GET /wp-json/app-api/v1/{configured-home-endpoint}`
 
 Home product sections use the same product-card contract as the product list. Post entries include a Solar Hijri `date` and a `categories` list after it.
+
+
+## View All action contract (2.5.2)
+
+`view_all.action` no longer uses the ambiguous `destination_id` field. Product/category/brand destinations use two stable arrays:
+
+```json
+{
+  "title": "مشاهده همه",
+  "type": "category",
+  "category_id": [350, 352],
+  "brand_id": [],
+  "on_sale": false,
+  "url": null,
+  "orderby": "date",
+  "order": "desc"
+}
+```
+
+For product lists, `type` is `category` when category filters exist, `brand` when only brand filters exist, and `all` only when neither category nor brand limits the list. Related-products View All always uses `type: "category"`.

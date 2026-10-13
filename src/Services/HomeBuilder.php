@@ -484,21 +484,32 @@ final class HomeBuilder {
 	private function derived_view_all_action( array $section, string $title ): array {
 		$type = sanitize_key( (string) ( $section['type'] ?? '' ) );
 		$action = array(
-			'title'          => $title,
-			'type'           => 'all',
-			'destination_id' => null,
-			'on_sale'        => null,
-			'url'            => null,
-			'orderby'        => 'date',
-			'order'          => 'desc',
+			'title'       => $title,
+			'type'        => 'all',
+			'category_id' => array(),
+			'brand_id'    => array(),
+			'on_sale'     => null,
+			'url'         => null,
+			'orderby'     => 'date',
+			'order'       => 'desc',
 		);
 
 		if ( 'products' === $type ) {
 			$categories = Request::ids( $section['category'] ?? array() );
 			$brands     = Request::ids( $section['brand'] ?? array() );
-			$action['type']           = 'all';
-			$action['destination_id'] = $categories[0] ?? ( $brands[0] ?? null );
-			$action['on_sale']        = ! empty( $section['on_sale'] );
+
+			$action['category_id'] = array_values( $categories );
+			$action['brand_id']    = array_values( $brands );
+			$action['on_sale']     = ! empty( $section['on_sale'] );
+
+			// The primary destination type follows the source that actually restricts
+			// the list. Both ID arrays are still preserved for combined filters.
+			if ( $categories ) {
+				$action['type'] = 'category';
+			} elseif ( $brands ) {
+				$action['type'] = 'brand';
+			}
+
 			return $action;
 		}
 
@@ -507,26 +518,24 @@ final class HomeBuilder {
 			$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
 			if ( 'parent' === $source ) {
 				$parent_id = absint( $section['parent_category'] ?? 0 );
-				$action['destination_id'] = $parent_id ?: null;
+				$action['category_id'] = $parent_id ? array( $parent_id ) : array();
 			} else {
-				$include = Request::ids( $section['include'] ?? array() );
-				$action['destination_id'] = $include[0] ?? null;
+				$action['category_id'] = array_values( Request::ids( $section['include'] ?? array() ) );
 			}
 			return $action;
 		}
 
 		if ( 'brand' === $type ) {
-			$action['type'] = 'brand';
-			$include = Request::ids( $section['include'] ?? array() );
-			$action['destination_id'] = $include[0] ?? null;
+			$action['type']     = 'brand';
+			$action['brand_id'] = array_values( Request::ids( $section['include'] ?? array() ) );
 			return $action;
 		}
 
 		if ( 'posts' === $type ) {
 			$categories = Request::ids( $section['category'] ?? array() );
 			if ( $categories ) {
-				$action['type'] = 'category';
-				$action['destination_id'] = $categories[0];
+				$action['type']        = 'category';
+				$action['category_id'] = array_values( $categories );
 			}
 			unset( $action['on_sale'] );
 			return $action;
