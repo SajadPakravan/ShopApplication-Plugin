@@ -71,18 +71,23 @@ final class Config {
 		}
 
 		return array(
-			'title'          => sanitize_text_field( $title ),
-			'type'           => $type,
-			'destination_id' => null,
-			'on_sale'        => null,
-			'url'            => null,
-			'orderby'        => 'date',
-			'order'          => 'desc',
+			'title'       => sanitize_text_field( $title ),
+			'type'        => $type,
+			'product_id'  => null,
+			'category_id' => array(),
+			'brand_id'    => array(),
+			'on_sale'     => null,
+			'url'         => null,
+			'orderby'     => 'date',
+			'order'       => 'desc',
 		);
 	}
 
 	/**
-	 * Normalizes current and legacy action data to one stable JSON contract.
+	 * Normalizes current and legacy action data to one stable editor contract.
+	 *
+	 * Product destinations use one scalar product_id. Category and brand
+	 * destinations accept one or more IDs and are always normalized to arrays.
 	 */
 	public static function normalize_action( $action, string $title = '' ): array {
 		$action = is_array( $action ) ? $action : array();
@@ -99,24 +104,33 @@ final class Config {
 			?? $action['name']
 			?? null;
 
-		$destination_id = null;
-		$url            = null;
-		$on_sale        = null;
+		$product_id  = null;
+		$category_id = array();
+		$brand_id    = array();
+		$url         = null;
+		$on_sale     = null;
 
 		if ( 'url' === $type ) {
 			$legacy_url = $action['url'] ?? $legacy_destination;
 			$url        = esc_url_raw( (string) $legacy_url );
 			$url        = '' !== $url ? $url : null;
-		} elseif ( in_array( $type, array( 'product', 'category', 'brand' ), true ) ) {
-			$destination_id = absint( $legacy_destination );
-			$destination_id = $destination_id > 0 ? $destination_id : null;
-			if ( in_array( $type, array( 'category', 'brand' ), true ) ) {
-				$on_sale = ! empty( $action['on_sale'] ) || ! empty( $action['action_on_sale'] );
-			}
+		} elseif ( 'product' === $type ) {
+			$raw_product = $action['product_id'] ?? $legacy_destination;
+			$product_id  = absint( is_array( $raw_product ) ? reset( $raw_product ) : $raw_product );
+			$product_id  = $product_id > 0 ? $product_id : null;
+			$on_sale     = ! empty( $action['on_sale'] ) || ! empty( $action['action_on_sale'] );
+		} elseif ( 'category' === $type ) {
+			$raw_category = $action['category_id'] ?? $legacy_destination;
+			$category_id  = array_values( \AppAPI\Support\Request::ids( $raw_category ) );
+			$on_sale      = ! empty( $action['on_sale'] ) || ! empty( $action['action_on_sale'] );
+		} elseif ( 'brand' === $type ) {
+			$raw_brand = $action['brand_id'] ?? $legacy_destination;
+			$brand_id  = array_values( \AppAPI\Support\Request::ids( $raw_brand ) );
+			$on_sale   = ! empty( $action['on_sale'] ) || ! empty( $action['action_on_sale'] );
 		} elseif ( 'all' === $type ) {
-			$destination_id = null;
-			$url            = null;
-			$on_sale        = null;
+			$on_sale = array_key_exists( 'on_sale', $action ) || array_key_exists( 'action_on_sale', $action )
+				? ( ! empty( $action['on_sale'] ) || ! empty( $action['action_on_sale'] ) )
+				: null;
 		}
 
 		$orderby = sanitize_key( (string) ( $action['orderby'] ?? $action['action_orderby'] ?? 'date' ) );
@@ -133,14 +147,58 @@ final class Config {
 		}
 
 		return array(
-			'title'          => sanitize_text_field( $title ),
-			'type'           => $type ?: null,
-			'destination_id' => $destination_id,
-			'on_sale'        => $on_sale,
-			'url'            => $url,
-			'orderby'        => $orderby,
-			'order'          => $order,
+			'title'       => sanitize_text_field( $title ),
+			'type'        => $type ?: null,
+			'product_id'  => $product_id,
+			'category_id' => $category_id,
+			'brand_id'    => $brand_id,
+			'on_sale'     => $on_sale,
+			'url'         => $url,
+			'orderby'     => $orderby,
+			'order'       => $order,
 		);
+	}
+
+	/**
+	 * Public action contract for image items.
+	 */
+	public static function normalize_image_action_output( $action, string $title = '' ): array {
+		$action = self::normalize_action( $action, $title );
+		$type   = (string) ( $action['type'] ?? '' );
+
+		$result = array(
+			'title'       => sanitize_text_field( $title ),
+			'type'        => $type ?: 'all',
+			'product_id'  => null,
+			'category_id' => array(),
+			'brand_id'    => array(),
+			'on_sale'     => null,
+			'url'         => null,
+			'orderby'     => $action['orderby'] ?? 'date',
+			'order'       => $action['order'] ?? 'desc',
+		);
+
+		if ( 'product' === $type ) {
+			$result['product_id'] = ! empty( $action['product_id'] ) ? (int) $action['product_id'] : null;
+			$result['type']       = $result['product_id'] ? 'product' : 'all';
+			$result['on_sale']    = true === $action['on_sale'];
+		} elseif ( 'category' === $type ) {
+			$result['type']        = 'category';
+			$result['category_id'] = array_values( (array) ( $action['category_id'] ?? array() ) );
+			$result['on_sale']     = true === $action['on_sale'];
+		} elseif ( 'brand' === $type ) {
+			$result['type']     = 'brand';
+			$result['brand_id'] = array_values( (array) ( $action['brand_id'] ?? array() ) );
+			$result['on_sale']  = true === $action['on_sale'];
+		} elseif ( 'url' === $type ) {
+			$result['type'] = 'url';
+			$result['url']  = $action['url'] ?? null;
+		} else {
+			$result['type']    = 'all';
+			$result['on_sale'] = $action['on_sale'];
+		}
+
+		return $result;
 	}
 
 	/**
@@ -152,24 +210,12 @@ final class Config {
 		$title        = sanitize_text_field( $title );
 		$legacy       = self::normalize_action( $action, $title );
 
-		$category_ids = array();
-		$brand_ids    = array();
-
-		if ( isset( $action['category_id'] ) ) {
-			$category_ids = \AppAPI\Support\Request::ids( $action['category_id'] );
-		}
-		if ( isset( $action['brand_id'] ) ) {
-			$brand_ids = \AppAPI\Support\Request::ids( $action['brand_id'] );
-		}
-
-		// Migrate the legacy destination_id to the correctly typed array.
-		if ( ! $category_ids && ! $brand_ids && ! empty( $legacy['destination_id'] ) ) {
-			if ( 'brand' === $legacy['type'] ) {
-				$brand_ids = array( (int) $legacy['destination_id'] );
-			} elseif ( 'category' === $legacy['type'] ) {
-				$category_ids = array( (int) $legacy['destination_id'] );
-			}
-		}
+		$category_ids = isset( $action['category_id'] )
+			? \AppAPI\Support\Request::ids( $action['category_id'] )
+			: array_values( (array) ( $legacy['category_id'] ?? array() ) );
+		$brand_ids = isset( $action['brand_id'] )
+			? \AppAPI\Support\Request::ids( $action['brand_id'] )
+			: array_values( (array) ( $legacy['brand_id'] ?? array() ) );
 
 		$type = 'all';
 		switch ( $section_type ) {
@@ -198,6 +244,7 @@ final class Config {
 		$result  = array(
 			'title'       => $title,
 			'type'        => $type,
+			'product_id'  => null,
 			'category_id' => array_values( $category_ids ),
 			'brand_id'    => array_values( $brand_ids ),
 			'on_sale'     => 'posts' === $section_type ? null : ( $legacy['on_sale'] ?? null ),

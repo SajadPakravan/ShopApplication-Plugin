@@ -75,6 +75,7 @@ final class ProductDetailBuilder {
 				'action' => array(
 					'title'       => $title,
 					'type'        => 'category',
+					'product_id'  => null,
 					'category_id' => array_values( $category_ids ),
 					'brand_id'    => array(),
 					'on_sale'     => ! empty( $section['on_sale'] ),
@@ -137,6 +138,7 @@ final class ProductDetailBuilder {
 				'action' => array(
 					'title'       => $title,
 					'type'        => 'all',
+					'product_id'  => null,
 					'category_id' => array(),
 					'brand_id'    => array(),
 					'url'         => null,

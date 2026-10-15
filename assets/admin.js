@@ -103,11 +103,11 @@
 			'<div class="app-api-action-editor app-api-action-fields">' +
 			'<div class="app-api-field-grid four-columns">' +
 			'<label><span>نوع مقصد</span><select name="' + actionBase + '[type]" class="app-api-action-type">' + actionOptions() + '</select></label>' +
-			'<label class="app-api-destination-field"><span class="app-api-destination-label">شناسه مقصد</span><input type="text" dir="ltr" class="app-api-action-destination" name="' + actionBase + '[destination]" value="" inputmode="numeric" placeholder="مثلاً 350"></label>' +
+			'<label class="app-api-destination-field"><span class="app-api-destination-label">شناسه محصولات</span><input type="text" dir="ltr" class="app-api-action-destination" name="' + actionBase + '[destination]" value="" inputmode="numeric" placeholder="خالی = همه محصولات"></label>' +
 			'<label><span>مرتب‌سازی</span><select name="' + actionBase + '[orderby]" class="app-api-action-orderby">' + actionOrderbyOptions() + '</select></label>' +
 			'<label><span>ترتیب</span><select name="' + actionBase + '[order]"><option value="desc">نزولی</option><option value="asc">صعودی</option></select></label>' +
 			'</div>' +
-			'<label class="app-api-check app-api-action-sale-field" hidden><input type="checkbox" name="' + actionBase + '[on_sale]" value="1" disabled> فقط محصولات تخفیف‌دار نمایش داده شوند</label>' +
+			'<label class="app-api-check app-api-action-sale-field"><input type="checkbox" name="' + actionBase + '[on_sale]" value="1"> فقط محصولات تخفیف‌دار نمایش داده شوند</label>' +
 			'</div></div></div></div>';
 	}
 
@@ -120,8 +120,9 @@
 		var $saleField = $container.find('.app-api-action-sale-field').first();
 		var $saleInput = $saleField.find('input[type="checkbox"]').first();
 		var identifierType = ['product', 'category', 'brand'].indexOf(type) !== -1;
-		var saleType = String($container.attr('data-allow-sale') || '1') !== '0' && ['category', 'brand'].indexOf(type) !== -1;
+		var saleType = String($container.attr('data-allow-sale') || '1') !== '0' && ['product', 'category', 'brand'].indexOf(type) !== -1;
 
+		$input.prop('required', false).removeAttr('pattern');
 		if (type === 'all') {
 			$field.prop('hidden', true);
 			$input.val('').prop('disabled', true);
@@ -129,10 +130,21 @@
 			$field.prop('hidden', false);
 			$label.text('لینک مقصد');
 			$input.prop('disabled', false).attr({ placeholder: 'https://example.com/...', inputmode: 'url' });
+		} else if (type === 'product') {
+			$field.prop('hidden', false);
+			$label.text('شناسه محصولات');
+			$input.prop('disabled', false).attr({ placeholder: 'خالی = همه محصولات', inputmode: 'numeric', pattern: '[0-9]*' });
+		} else if (type === 'category') {
+			$field.prop('hidden', false);
+			$label.text('شناسه دسته‌بندی‌ها');
+			$input.prop('disabled', false).prop('required', true).attr({ placeholder: 'مثلاً 55,166', inputmode: 'text' });
+		} else if (type === 'brand') {
+			$field.prop('hidden', false);
+			$label.text('شناسه برندها');
+			$input.prop('disabled', false).prop('required', true).attr({ placeholder: 'مثلاً 313,362', inputmode: 'text' });
 		} else if (identifierType) {
 			$field.prop('hidden', false);
-			$label.text('شناسه مقصد');
-			$input.prop('disabled', false).attr({ placeholder: 'خالی = همه موارد این نوع', inputmode: 'numeric' });
+			$input.prop('disabled', false);
 		} else {
 			$field.prop('hidden', true);
 			$input.val('').prop('disabled', true);

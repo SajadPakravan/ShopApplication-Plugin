@@ -1,4 +1,4 @@
-# Application API v2.5.2
+# Application API v2.5.3
 
 ## Product list
 
@@ -78,3 +78,29 @@ Home product sections use the same product-card contract as the product list. Po
 ```
 
 For product lists, `type` is `category` when category filters exist, `brand` when only brand filters exist, and `all` only when neither category nor brand limits the list. Related-products View All always uses `type: "category"`.
+
+
+## Image action contract (2.5.3)
+
+Image items now use the same explicit destination fields as view-all actions:
+
+```json
+{
+  "title": "لپ‌تاپ",
+  "type": "category",
+  "product_id": null,
+  "category_id": [55],
+  "brand_id": [],
+  "on_sale": false,
+  "url": null,
+  "orderby": "date",
+  "order": "desc"
+}
+```
+
+Rules:
+- `product`: accepts one optional `product_id`. If empty, public JSON uses `type: "all"`.
+- `category`: requires one or more IDs in `category_id`.
+- `brand`: requires one or more IDs in `brand_id`.
+- `url`: uses `url`; product/category/brand IDs stay empty.
+- `on_sale` is available for product, category and brand destinations.

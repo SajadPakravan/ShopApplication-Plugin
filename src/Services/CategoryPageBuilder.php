@@ -86,7 +86,7 @@ final class CategoryPageBuilder {
 				'title'    => $title,
 				'subtitle' => sanitize_text_field( (string) ( $item['subtitle'] ?? '' ) ),
 				'image'    => $image,
-				'action'   => Config::normalize_action( $item['action'] ?? array(), $title ),
+				'action'   => Config::normalize_image_action_output( $item['action'] ?? array(), $title ),
 			);
 		}
 		return $result;

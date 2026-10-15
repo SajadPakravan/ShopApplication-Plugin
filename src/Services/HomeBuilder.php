@@ -486,6 +486,7 @@ final class HomeBuilder {
 		$action = array(
 			'title'       => $title,
 			'type'        => 'all',
+			'product_id'  => null,
 			'category_id' => array(),
 			'brand_id'    => array(),
 			'on_sale'     => null,
@@ -545,7 +546,7 @@ final class HomeBuilder {
 	}
 
 	private function resolve_action( array $action, string $title ): array {
-		return Config::normalize_action( $action, $title );
+		return Config::normalize_image_action_output( $action, $title );
 	}
 
 	private function resolve_term_ids( string $taxonomy, $names, $slugs ): array {

@@ -924,17 +924,37 @@ final class SettingsPage {
 			$action_type = $allowed_types[0] ?? 'product';
 			$action      = Config::default_action( $title, $action_type );
 		}
-		$destination   = 'url' === $action_type ? (string) ( $action['url'] ?? '' ) : (string) ( $action['destination_id'] ?? '' );
+		if ( 'url' === $action_type ) {
+			$destination = (string) ( $action['url'] ?? '' );
+		} elseif ( 'product' === $action_type ) {
+			$destination = ! empty( $action['product_id'] ) ? (string) $action['product_id'] : '';
+		} elseif ( 'category' === $action_type ) {
+			$destination = implode( ',', array_map( 'absint', (array) ( $action['category_id'] ?? array() ) ) );
+		} elseif ( 'brand' === $action_type ) {
+			$destination = implode( ',', array_map( 'absint', (array) ( $action['brand_id'] ?? array() ) ) );
+		} else {
+			$destination = '';
+		}
 		$is_identifier = in_array( $action_type, array( 'product', 'category', 'brand' ), true );
 		$is_url        = 'url' === $action_type;
 		$is_all        = 'all' === $action_type;
-		$is_sale_type  = $allow_on_sale && in_array( $action_type, array( 'category', 'brand' ), true );
-		$label         = $is_url ? 'لینک مقصد' : ( $is_identifier ? 'شناسه مقصد' : 'بدون شناسه مقصد' );
+		$is_sale_type  = $allow_on_sale && in_array( $action_type, array( 'product', 'category', 'brand' ), true );
+		if ( 'product' === $action_type ) {
+			$label = 'شناسه محصولات';
+		} elseif ( 'category' === $action_type ) {
+			$label = 'شناسه دسته‌بندی‌ها';
+		} elseif ( 'brand' === $action_type ) {
+			$label = 'شناسه برندها';
+		} elseif ( $is_url ) {
+			$label = 'لینک مقصد';
+		} else {
+			$label = 'بدون شناسه مقصد';
+		}
 		?>
 		<div class="app-api-action-editor app-api-action-fields" data-action-title="<?php echo esc_attr( $title ); ?>" data-allow-sale="<?php echo $allow_on_sale ? '1' : '0'; ?>">
 			<div class="app-api-field-grid four-columns">
 				<label><span>نوع مقصد</span><select name="<?php echo esc_attr( $name ); ?>[type]" class="app-api-action-type"><?php $this->render_action_options( $action_type, $allowed_types, $custom_labels ); ?></select></label>
-				<label class="app-api-destination-field" <?php echo $is_all ? 'hidden' : ''; ?>><span class="app-api-destination-label"><?php echo esc_html( $label ); ?></span><input type="text" dir="ltr" class="app-api-action-destination" name="<?php echo esc_attr( $name ); ?>[destination]" value="<?php echo esc_attr( $destination ); ?>" <?php disabled( ! $is_identifier && ! $is_url ); ?>></label>
+				<label class="app-api-destination-field" <?php echo $is_all ? 'hidden' : ''; ?>><span class="app-api-destination-label"><?php echo esc_html( $label ); ?></span><input type="text" dir="ltr" class="app-api-action-destination" name="<?php echo esc_attr( $name ); ?>[destination]" value="<?php echo esc_attr( $destination ); ?>" <?php disabled( ! $is_identifier && ! $is_url ); ?> <?php echo in_array( $action_type, array( 'category', 'brand' ), true ) ? 'required' : ''; ?>></label>
 				<label><span>مرتب‌سازی</span><select name="<?php echo esc_attr( $name ); ?>[orderby]" class="app-api-action-orderby"><?php $this->render_action_orderby_options( (string) $action['orderby'] ); ?></select></label>
 				<label><span>ترتیب</span><select name="<?php echo esc_attr( $name ); ?>[order]"><option value="desc" <?php selected( $action['order'], 'desc' ); ?>>نزولی</option><option value="asc" <?php selected( $action['order'], 'asc' ); ?>>صعودی</option></select></label>
 			</div>
