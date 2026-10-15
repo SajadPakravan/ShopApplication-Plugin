@@ -332,8 +332,9 @@ final class SettingsPage {
 				$clean['product_id'] = absint( $section['product_id'] ?? 0 );
 			} elseif ( 'category' === $type ) {
 				$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
-				$clean['category_source'] = in_array( $source, array( 'custom', 'parents' ), true ) ? $source : 'custom';
+				$clean['category_source'] = in_array( $source, array( 'custom', 'parents', 'children', 'tree' ), true ) ? $source : 'custom';
 				$clean['include'] = Request::ids( $section['include'] ?? array() );
+				$clean['parent_category'] = absint( $section['parent_category'] ?? 0 );
 			}
 			$result['sections'][ $key ] = $clean;
 		}
@@ -1006,18 +1007,51 @@ final class SettingsPage {
 
 
 	private function render_category_settings(): void {
+		?>
+		<div class="app-api-inner-tabs" data-inner-tabs="categories">
+			<nav class="app-api-subtabs" aria-label="تنظیمات دسته‌بندی‌ها">
+				<button type="button" class="app-api-subtab is-active" data-subtab="category-page">صفحه دسته‌بندی‌ها</button>
+				<button type="button" class="app-api-subtab" data-subtab="category-detail">جزئیات دسته‌بندی</button>
+			</nav>
+			<div class="app-api-subtab-panel is-active" data-subpanel="category-page">
+				<?php $this->render_category_page_settings(); ?>
+			</div>
+			<div class="app-api-subtab-panel" data-subpanel="category-detail">
+				<?php $this->render_category_detail_information(); ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	private function render_category_detail_information(): void {
+		$detail_url = rest_url( Config::REST_NAMESPACE . '/categories/{id}' );
+		?>
+		<div class="app-api-products-info">
+			<div class="app-api-card app-api-endpoint-card">
+				<div class="app-api-card-title"><div><h2>API جزئیات دسته‌بندی</h2><p>این آدرس ثابت است و شناسه دسته‌بندی جایگزین <code>{id}</code> می‌شود. این صفحه فعلاً تنظیمات مدیریتی جداگانه ندارد.</p></div></div>
+				<label><span>آدرس کامل API</span><input type="text" dir="ltr" value="<?php echo esc_attr( $detail_url ); ?>" readonly></label>
+			</div>
+			<div class="app-api-card app-api-info-card">
+				<h3>اطلاعات خروجی</h3>
+				<p>جزئیات دسته‌بندی شامل نام، توضیحات، تصویر اصلی و باکیفیت، تعداد محصولات، مسیر دسته‌بندی‌های والد از سطح اصلی تا والد مستقیم و همه زیر‌دسته‌ها به‌صورت درختی است.</p>
+			</div>
+		</div>
+		<?php
+	}
+
+	private function render_category_page_settings(): void {
 		$config = Config::category_configuration();
-		$url    = rest_url( Config::REST_NAMESPACE . '/categories/{id}' );
+		$url    = rest_url( Config::REST_NAMESPACE . '/categories' );
 		?>
 		<form method="post" action="options.php" id="app-api-category-form">
 			<?php settings_fields( 'app_api_category_settings' ); ?>
 			<div class="app-api-card app-api-endpoint-card">
-				<div class="app-api-card-title"><div><h2>API صفحه دسته‌بندی</h2><p>آدرس این API ثابت است و شناسه دسته‌بندی جایگزین <code>{id}</code> می‌شود.</p></div></div>
+				<div class="app-api-card-title"><div><h2>API صفحه دسته‌بندی‌ها</h2><p>این API صفحه عمومی دسته‌بندی‌ها را می‌سازد و بخش‌های آن از تنظیمات همین تب مدیریت می‌شوند.</p></div></div>
 				<label><span>آدرس کامل API</span><input type="text" dir="ltr" value="<?php echo esc_attr( $url ); ?>" readonly></label>
 			</div>
 
 			<details class="app-api-card app-api-order-card app-api-accordion" open>
-				<summary><div class="app-api-card-title-text"><h2>فعال‌سازی و ترتیب نمایش</h2><p>بخش‌های فعال با همین ترتیب در API صفحه دسته‌بندی قرار می‌گیرند.</p></div></summary>
+				<summary><div class="app-api-card-title-text"><h2>فعال‌سازی و ترتیب نمایش</h2><p>بخش‌های فعال با همین ترتیب در API صفحه دسته‌بندی‌ها قرار می‌گیرند.</p></div></summary>
 				<div class="app-api-order-body app-api-accordion-body">
 					<div class="app-api-builder-toolbar">
 						<div><strong>افزودن بخش جدید</strong><span>بخش تصویر، محصول یا دسته‌بندی را اضافه کن.</span></div>
@@ -1043,13 +1077,13 @@ final class SettingsPage {
 				</div>
 			</details>
 
-			<div class="app-api-section-heading"><div><h2>تنظیمات بخش‌های صفحه دسته‌بندی</h2></div></div>
+			<div class="app-api-section-heading"><div><h2>تنظیمات بخش‌های صفحه دسته‌بندی‌ها</h2></div></div>
 			<div class="app-api-section-cards" id="app-api-category-section-cards">
 				<?php foreach ( $config['order'] as $key ) : ?>
 					<?php $this->render_category_section_card( $key, $config['sections'][ $key ] ); ?>
 				<?php endforeach; ?>
 			</div>
-			<div class="app-api-save-bar"><?php submit_button( 'ذخیره تنظیمات صفحه دسته‌بندی', 'primary', 'submit', false ); ?></div>
+			<div class="app-api-save-bar"><?php submit_button( 'ذخیره تنظیمات صفحه دسته‌بندی‌ها', 'primary', 'submit', false ); ?></div>
 		</form>
 		<?php
 	}
@@ -1059,6 +1093,7 @@ final class SettingsPage {
 		$name   = Config::OPTION_CATEGORY_CONFIG . '[sections][' . $key . ']';
 		$layout = isset( $section['layout'] ) && is_array( $section['layout'] ) ? $section['layout'] : Config::default_layout_for_type( $type );
 		$label  = $this->section_label( $section );
+		$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
 		?>
 		<details class="app-api-section-card app-api-category-section-card app-api-accordion <?php echo empty( $section['enabled'] ) ? 'is-disabled' : ''; ?>" data-category-section-card="<?php echo esc_attr( $key ); ?>" data-category-section-type="<?php echo esc_attr( $type ); ?>">
 			<summary><div><strong class="app-api-card-label"><?php echo esc_html( $label ); ?></strong><small><code class="app-api-card-id"><?php echo esc_html( $section['id'] ); ?></code> · <span class="app-api-card-type"><?php echo esc_html( Config::category_section_types()[ $type ] ?? $type ); ?></span></small></div><div class="app-api-summary-actions"><span class="app-api-status"><?php echo empty( $section['enabled'] ) ? 'غیرفعال' : 'فعال'; ?></span><button type="button" class="button-link-delete app-api-category-delete-section">حذف بخش</button></div></summary>
@@ -1077,10 +1112,66 @@ final class SettingsPage {
 
 				<div class="app-api-category-type-panel" data-category-type-panel="image" <?php echo 'image' !== $type ? 'hidden' : ''; ?>><?php $this->render_repeater( $key, $section['data'] ?? array(), $name ); ?></div>
 				<div class="app-api-category-type-panel" data-category-type-panel="product" <?php echo 'product' !== $type ? 'hidden' : ''; ?>><div class="app-api-subcard"><div class="app-api-subcard-heading"><div><h4>محصول</h4><p>شناسه محصولی که باید در این بخش نمایش داده شود.</p></div></div><label><span>شناسه محصول</span><input type="number" min="1" name="<?php echo esc_attr( $name ); ?>[product_id]" value="<?php echo esc_attr( absint( $section['product_id'] ?? 0 ) ); ?>"></label></div></div>
-				<div class="app-api-category-type-panel" data-category-type-panel="category" <?php echo 'category' !== $type ? 'hidden' : ''; ?>><div class="app-api-subcard"><div class="app-api-subcard-heading"><div><h4>دسته‌بندی‌ها</h4></div></div><div class="app-api-category-page-selector" data-category-page-selector><label><span>روش انتخاب دسته‌بندی‌ها</span><select class="app-api-category-page-source" name="<?php echo esc_attr( $name ); ?>[category_source]"><option value="custom" <?php selected( $section['category_source'] ?? 'custom', 'custom' ); ?>>انتخاب سفارشی با شناسه</option><option value="parents" <?php selected( $section['category_source'] ?? '', 'parents' ); ?>>نمایش دسته‌بندی‌های والد</option></select></label><label class="app-api-category-page-custom" <?php echo 'parents' === ( $section['category_source'] ?? '' ) ? 'hidden' : ''; ?>><span>شناسه دسته‌بندی‌ها به ترتیب نمایش</span><input type="text" dir="ltr" name="<?php echo esc_attr( $name ); ?>[include]" value="<?php echo esc_attr( implode( ',', Request::ids( $section['include'] ?? array() ) ) ); ?>"></label><p class="description app-api-category-page-parents-help" <?php echo 'parents' === ( $section['category_source'] ?? '' ) ? '' : 'hidden'; ?>>همه دسته‌بندی‌های سطح اصلی فروشگاه به ترتیب تعریف‌شده در ووکامرس نمایش داده می‌شوند.</p></div></div></div>
+				<div class="app-api-category-type-panel" data-category-type-panel="category" <?php echo 'category' !== $type ? 'hidden' : ''; ?>>
+					<div class="app-api-subcard">
+						<div class="app-api-subcard-heading"><div><h4>دسته‌بندی‌ها</h4><p>یک بخش دسته‌بندی می‌تواند چهار شیوه نمایش متفاوت را پوشش دهد.</p></div></div>
+						<div class="app-api-category-page-selector" data-category-page-selector>
+							<label><span>روش انتخاب دسته‌بندی‌ها</span>
+								<select class="app-api-category-page-source" name="<?php echo esc_attr( $name ); ?>[category_source]">
+									<option value="parents" <?php selected( $source, 'parents' ); ?>>نمایش دسته‌بندی‌های اصلی و والد</option>
+									<option value="children" <?php selected( $source, 'children' ); ?>>نمایش زیر‌دسته‌های یک دسته‌بندی خاص</option>
+									<option value="custom" <?php selected( $source, 'custom' ); ?>>نمایش دسته‌بندی‌های دلخواه</option>
+									<option value="tree" <?php selected( $source, 'tree' ); ?>>نمایش همه دسته‌بندی‌های والد با همه زیر‌دسته‌ها</option>
+								</select>
+							</label>
+							<label class="app-api-category-page-parent" <?php echo 'children' === $source ? '' : 'hidden'; ?>><span>دسته‌بندی مبنا</span><select name="<?php echo esc_attr( $name ); ?>[parent_category]"><option value="0">انتخاب دسته‌بندی</option><?php $this->render_all_product_category_options( absint( $section['parent_category'] ?? 0 ) ); ?></select></label>
+							<label class="app-api-category-page-custom" <?php echo 'custom' === $source ? '' : 'hidden'; ?>><span>شناسه دسته‌بندی‌ها به ترتیب نمایش</span><input type="text" dir="ltr" name="<?php echo esc_attr( $name ); ?>[include]" value="<?php echo esc_attr( implode( ',', Request::ids( $section['include'] ?? array() ) ) ); ?>" placeholder="مثلاً 55,166,350"></label>
+							<p class="description app-api-category-page-source-help"></p>
+						</div>
+					</div>
+				</div>
 			</div>
 		</details>
 		<?php
+	}
+
+	private function render_all_product_category_options( int $selected ): void {
+		$terms = get_terms(
+			array(
+				'taxonomy'   => 'product_cat',
+				'hide_empty' => false,
+			)
+		);
+		if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
+			return;
+		}
+
+		$groups = array();
+		foreach ( $terms as $term ) {
+			if ( $term instanceof \WP_Term ) {
+				$groups[ (int) $term->parent ][] = $term;
+			}
+		}
+		foreach ( $groups as &$group ) {
+			usort(
+				$group,
+				static function ( $a, $b ) {
+					$a_order = (int) get_term_meta( $a->term_id, 'order', true );
+					$b_order = (int) get_term_meta( $b->term_id, 'order', true );
+					return $a_order === $b_order ? strnatcasecmp( (string) $a->name, (string) $b->name ) : $a_order <=> $b_order;
+				}
+			);
+		}
+		unset( $group );
+
+		$render = static function ( int $parent, int $depth ) use ( &$render, $groups, $selected ) {
+			foreach ( $groups[ $parent ] ?? array() as $term ) {
+				$prefix = str_repeat( '— ', $depth );
+				printf( '<option value="%1$d" %2$s>%3$s</option>', (int) $term->term_id, selected( $selected, (int) $term->term_id, false ), esc_html( $prefix . $term->name ) );
+				$render( (int) $term->term_id, $depth + 1 );
+			}
+		};
+		$render( 0, 0 );
 	}
 
 	private function render_category_section_template(): void {

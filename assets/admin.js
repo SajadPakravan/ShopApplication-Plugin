@@ -393,12 +393,28 @@
 	function syncCategoryPageSource($select) {
 		var source = String($select.val() || 'custom');
 		var $container = $select.closest('[data-category-page-selector]');
-		var parents = source === 'parents';
 		var $custom = $container.find('.app-api-category-page-custom').first();
-		var $help = $container.find('.app-api-category-page-parents-help').first();
-		$custom.prop('hidden', parents);
-		$custom.find(':input').prop('disabled', parents);
-		$help.prop('hidden', !parents);
+		var $parent = $container.find('.app-api-category-page-parent').first();
+		var $help = $container.find('.app-api-category-page-source-help').first();
+		var isCustom = source === 'custom';
+		var isChildren = source === 'children';
+
+		$custom.prop('hidden', !isCustom);
+		$custom.find(':input').prop('disabled', !isCustom);
+		$parent.prop('hidden', !isChildren);
+		$parent.find(':input').prop('disabled', !isChildren);
+
+		var help = '';
+		if (source === 'parents') {
+			help = 'همه دسته‌بندی‌های سطح اصلی که والد دیگری ندارند، با ترتیب فروشگاه نمایش داده می‌شوند.';
+		} else if (source === 'children') {
+			help = 'فقط زیر‌دسته‌های مستقیم دسته‌بندی انتخاب‌شده نمایش داده می‌شوند.';
+		} else if (source === 'custom') {
+			help = 'فقط شناسه‌های واردشده و دقیقاً با همان ترتیب نمایش داده می‌شوند.';
+		} else if (source === 'tree') {
+			help = 'همه دسته‌بندی‌های والد همراه تمام زیر‌دسته‌هایشان به‌صورت ساختار درختی برگردانده می‌شوند.';
+		}
+		$help.text(help);
 	}
 
 	$(function () {

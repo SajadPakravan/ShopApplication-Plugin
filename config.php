@@ -587,6 +587,7 @@ final class Config {
 		} elseif ( 'category' === $type ) {
 			$section['category_source'] = 'custom';
 			$section['include']         = array();
+			$section['parent_category'] = 0;
 		}
 		return $section;
 	}
@@ -624,8 +625,9 @@ final class Config {
 				$section['product_id'] = absint( $raw['product_id'] ?? 0 );
 			} else {
 				$source = sanitize_key( (string) ( $raw['category_source'] ?? 'custom' ) );
-				$section['category_source'] = in_array( $source, array( 'custom', 'parents' ), true ) ? $source : 'custom';
+				$section['category_source'] = in_array( $source, array( 'custom', 'parents', 'children', 'tree' ), true ) ? $source : 'custom';
 				$section['include'] = self::ids( $raw['include'] ?? array() );
+				$section['parent_category'] = absint( $raw['parent_category'] ?? 0 );
 			}
 			$sections[ $key ] = $section;
 		}

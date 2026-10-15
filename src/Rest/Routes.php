@@ -11,8 +11,8 @@ defined( 'ABSPATH' ) || exit;
 
 final class Routes {
 	public function register(): void {
-		$product_controller = new ProductController();
-		$home_controller    = new HomeController();
+		$product_controller  = new ProductController();
+		$home_controller     = new HomeController();
 		$category_controller = new CategoryController();
 
 		register_rest_route(
@@ -43,6 +43,18 @@ final class Routes {
 			)
 		);
 
+		// Configurable categories landing page.
+		register_rest_route(
+			Config::REST_NAMESPACE,
+			'/categories',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( $category_controller, 'index' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+
+		// Fixed category-detail endpoint.
 		register_rest_route(
 			Config::REST_NAMESPACE,
 			'/categories/(?P<id>\d+)',
@@ -122,5 +134,4 @@ final class Routes {
 			),
 		);
 	}
-
 }
