@@ -60,3 +60,9 @@ Every category item contains `id`, `name`, `count`, and the original/full `image
 - Category-page product sections use `type: products` and can show either one product or a category-filtered product list.
 - Home product sections can also show one specific product.
 - Image actions support `type: post` with `post_id`.
+
+## 2.6.2
+- Home `category` sections now use the same nested category-item contract as the category APIs.
+- The legacy `parent` field was removed from Home category items.
+- Every Home category item always contains `children`; leaf categories return `children: []` and parent categories recursively contain their descendants.
+- Home category counts use published-product counts and category images continue to use the original/full taxonomy image.

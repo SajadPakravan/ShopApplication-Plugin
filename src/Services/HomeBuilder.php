@@ -360,28 +360,105 @@ final class HomeBuilder {
 		return $result;
 	}
 
+	/**
+	 * Formats Home category sections with the same nested contract used by the
+	 * category APIs. Every category always exposes a `children` array; when the
+	 * term has descendants they are nested recursively, otherwise it is empty.
+	 */
 	private function format_terms( $terms ): array {
 		if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
 			return array();
 		}
 
+		$tree = $this->home_category_tree_context();
 		$result = array();
 		foreach ( $terms as $term ) {
 			if ( $term instanceof \WP_Term ) {
-				$result[] = $this->format_term( $term );
+				$result[] = $this->format_category_tree_term( $term, $tree['children'], $tree['counts'], array() );
 			}
 		}
 		return $result;
 	}
 
-	private function format_term( \WP_Term $term ): array {
+	private function format_category_tree_term( \WP_Term $term, array $children, array $counts, array $visited ): array {
+		$id = (int) $term->term_id;
+		if ( isset( $visited[ $id ] ) ) {
+			return array(
+				'id'       => $id,
+				'name'     => (string) $term->name,
+				'count'    => (int) ( $counts[ $id ] ?? $term->count ),
+				'image'    => Taxonomy::term_image_url( $term ),
+				'children' => array(),
+			);
+		}
+
+		$visited[ $id ] = true;
+		$nested = array();
+		foreach ( $children[ $id ] ?? array() as $child ) {
+			if ( $child instanceof \WP_Term ) {
+				$nested[] = $this->format_category_tree_term( $child, $children, $counts, $visited );
+			}
+		}
+
 		return array(
-			'id'     => (int) $term->term_id,
-			'name'   => $term->name,
-			'parent' => (int) $term->parent,
-			'count'  => (int) $term->count,
-			'image'  => Taxonomy::term_image_url( $term ),
+			'id'       => $id,
+			'name'     => (string) $term->name,
+			'count'    => (int) ( $counts[ $id ] ?? $term->count ),
+			'image'    => Taxonomy::term_image_url( $term ),
+			'children' => $nested,
 		);
+	}
+
+	/**
+	 * Loads the product-category hierarchy once per request so Home sections do
+	 * not issue one taxonomy query per category item. Children respect the store
+	 * category order, with the term name as a stable fallback.
+	 */
+	private function home_category_tree_context(): array {
+		static $context = null;
+		if ( is_array( $context ) ) {
+			return $context;
+		}
+
+		$all_terms = get_terms(
+			array(
+				'taxonomy'   => 'product_cat',
+				'hide_empty' => false,
+			)
+		);
+
+		$children = array();
+		$ids      = array();
+		if ( ! is_wp_error( $all_terms ) && is_array( $all_terms ) ) {
+			foreach ( $all_terms as $term ) {
+				if ( ! $term instanceof \WP_Term ) {
+					continue;
+				}
+				$children[ (int) $term->parent ][] = $term;
+				$ids[] = (int) $term->term_id;
+			}
+		}
+
+		foreach ( $children as &$group ) {
+			usort(
+				$group,
+				static function ( $a, $b ) {
+					$a_order = (int) get_term_meta( $a->term_id, 'order', true );
+					$b_order = (int) get_term_meta( $b->term_id, 'order', true );
+					if ( $a_order !== $b_order ) {
+						return $a_order <=> $b_order;
+					}
+					return strnatcasecmp( (string) $a->name, (string) $b->name );
+				}
+			);
+		}
+		unset( $group );
+
+		$context = array(
+			'children' => $children,
+			'counts'   => Taxonomy::published_product_counts( 'product_cat', $ids ),
+		);
+		return $context;
 	}
 
 	private function term_image_url( \WP_Term $term ): string {
