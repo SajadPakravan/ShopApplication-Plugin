@@ -54,3 +54,9 @@ Every category item contains `id`, `name`, `count`, and the original/full `image
 ```
 
 `parents` is ordered from the top-level ancestor to the direct parent. `children` contains all descendants as a nested tree.
+
+
+## 2.6.1
+- Category-page product sections use `type: products` and can show either one product or a category-filtered product list.
+- Home product sections can also show one specific product.
+- Image actions support `type: post` with `post_id`.

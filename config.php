@@ -54,7 +54,7 @@ final class Config {
 	 * Destination types supported by every public action object.
 	 */
 	public static function allowed_action_types(): array {
-		return array( 'all', 'product', 'category', 'brand', 'url' );
+		return array( 'all', 'product', 'category', 'brand', 'post', 'url' );
 	}
 
 	/**
@@ -74,6 +74,7 @@ final class Config {
 			'title'       => sanitize_text_field( $title ),
 			'type'        => $type,
 			'product_id'  => null,
+			'post_id'     => null,
 			'category_id' => array(),
 			'brand_id'    => array(),
 			'on_sale'     => null,
@@ -105,6 +106,7 @@ final class Config {
 			?? null;
 
 		$product_id  = null;
+		$post_id     = null;
 		$category_id = array();
 		$brand_id    = array();
 		$url         = null;
@@ -119,6 +121,10 @@ final class Config {
 			$product_id  = absint( is_array( $raw_product ) ? reset( $raw_product ) : $raw_product );
 			$product_id  = $product_id > 0 ? $product_id : null;
 			$on_sale     = ! empty( $action['on_sale'] ) || ! empty( $action['action_on_sale'] );
+		} elseif ( 'post' === $type ) {
+			$raw_post = $action['post_id'] ?? $legacy_destination;
+			$post_id  = absint( is_array( $raw_post ) ? reset( $raw_post ) : $raw_post );
+			$post_id  = $post_id > 0 ? $post_id : null;
 		} elseif ( 'category' === $type ) {
 			$raw_category = $action['category_id'] ?? $legacy_destination;
 			$category_id  = array_values( \AppAPI\Support\Request::ids( $raw_category ) );
@@ -150,6 +156,7 @@ final class Config {
 			'title'       => sanitize_text_field( $title ),
 			'type'        => $type ?: null,
 			'product_id'  => $product_id,
+			'post_id'     => $post_id,
 			'category_id' => $category_id,
 			'brand_id'    => $brand_id,
 			'on_sale'     => $on_sale,
@@ -170,6 +177,7 @@ final class Config {
 			'title'       => sanitize_text_field( $title ),
 			'type'        => $type ?: 'all',
 			'product_id'  => null,
+			'post_id'     => null,
 			'category_id' => array(),
 			'brand_id'    => array(),
 			'on_sale'     => null,
@@ -182,6 +190,9 @@ final class Config {
 			$result['product_id'] = ! empty( $action['product_id'] ) ? (int) $action['product_id'] : null;
 			$result['type']       = $result['product_id'] ? 'product' : 'all';
 			$result['on_sale']    = true === $action['on_sale'];
+		} elseif ( 'post' === $type ) {
+			$result['type']    = 'post';
+			$result['post_id'] = ! empty( $action['post_id'] ) ? (int) $action['post_id'] : null;
 		} elseif ( 'category' === $type ) {
 			$result['type']        = 'category';
 			$result['category_id'] = array_values( (array) ( $action['category_id'] ?? array() ) );
@@ -293,6 +304,8 @@ final class Config {
 		if ( 'image' === $type ) {
 			$section['data'] = array();
 		} elseif ( 'products' === $type ) {
+			$section['product_source']   = 'list';
+			$section['product_id']       = 0;
 			$section['category']         = array();
 			$section['brand']            = array();
 			$section['on_sale']          = false;
@@ -392,6 +405,10 @@ final class Config {
 			}
 
 			if ( 'products' === $type ) {
+				$product_source = sanitize_key( (string) ( $section['product_source'] ?? ( ! empty( $section['product_id'] ) ? 'single' : 'list' ) ) );
+				$product_source = in_array( $product_source, array( 'list', 'single' ), true ) ? $product_source : 'list';
+				$clean['product_source'] = $product_source;
+				$clean['product_id']     = absint( $section['product_id'] ?? 0 );
 				$legacy_query = isset( $section['query'] ) && is_array( $section['query'] ) ? $section['query'] : array();
 				$source       = sanitize_key( (string) ( $section['source'] ?? '' ) );
 				$category     = $section['category'] ?? ( $legacy_query['category'] ?? array() );
@@ -489,7 +506,7 @@ final class Config {
 			}
 
 			$resolved_action = self::normalize_action( $action, $title );
-			if ( ! in_array( $resolved_action['type'], array( 'product', 'category', 'brand', 'url' ), true ) ) {
+			if ( ! in_array( $resolved_action['type'], array( 'product', 'category', 'brand', 'post', 'url' ), true ) ) {
 				$resolved_action = self::default_action( $title, 'product' );
 			}
 
@@ -550,7 +567,7 @@ final class Config {
 	public static function category_section_types(): array {
 		return array(
 			'image'    => 'تصویر',
-			'product'  => 'محصول',
+			'products' => 'محصولات',
 			'category' => 'دسته‌بندی',
 		);
 	}
@@ -582,8 +599,14 @@ final class Config {
 		);
 		if ( 'image' === $type ) {
 			$section['data'] = array();
-		} elseif ( 'product' === $type ) {
-			$section['product_id'] = 0;
+		} elseif ( 'products' === $type ) {
+			$section['product_source']   = 'list';
+			$section['product_id']       = 0;
+			$section['category']         = array();
+			$section['on_sale']          = false;
+			$section['per_page']         = 10;
+			$section['view_all_enabled'] = true;
+			$section['view_all_title']   = 'مشاهده همه';
 		} elseif ( 'category' === $type ) {
 			$section['category_source'] = 'custom';
 			$section['include']         = array();
@@ -603,6 +626,9 @@ final class Config {
 			}
 			$key  = sanitize_key( (string) $key );
 			$type = sanitize_key( (string) ( $raw['type'] ?? '' ) );
+			if ( 'product' === $type ) {
+				$type = 'products';
+			}
 			if ( ! $key || ! isset( $allowed[ $type ] ) ) {
 				continue;
 			}
@@ -621,8 +647,16 @@ final class Config {
 			);
 			if ( 'image' === $type ) {
 				$section['data'] = isset( $raw['data'] ) && is_array( $raw['data'] ) ? $raw['data'] : array();
-			} elseif ( 'product' === $type ) {
-				$section['product_id'] = absint( $raw['product_id'] ?? 0 );
+			} elseif ( 'products' === $type ) {
+				$product_source = sanitize_key( (string) ( $raw['product_source'] ?? ( ! empty( $raw['product_id'] ) ? 'single' : 'list' ) ) );
+				$section['product_source']   = in_array( $product_source, array( 'list', 'single' ), true ) ? $product_source : 'list';
+				$section['product_id']       = absint( $raw['product_id'] ?? 0 );
+				$section['category']         = self::ids( $raw['category'] ?? array() );
+				$section['on_sale']          = ! empty( $raw['on_sale'] );
+				$per_page                    = absint( $raw['per_page'] ?? 10 );
+				$section['per_page']         = min( 50, max( 1, $per_page ?: 10 ) );
+				$section['view_all_enabled'] = array_key_exists( 'view_all_enabled', $raw ) ? ! empty( $raw['view_all_enabled'] ) : true;
+				$section['view_all_title']   = sanitize_text_field( (string) ( $raw['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
 			} else {
 				$source = sanitize_key( (string) ( $raw['category_source'] ?? 'custom' ) );
 				$section['category_source'] = in_array( $source, array( 'custom', 'parents', 'children', 'tree' ), true ) ? $source : 'custom';

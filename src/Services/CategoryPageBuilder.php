@@ -13,9 +13,11 @@ defined( 'ABSPATH' ) || exit;
  */
 final class CategoryPageBuilder {
 	private $formatter;
+	private $repository;
 
-	public function __construct( ?ProductFormatter $formatter = null ) {
-		$this->formatter = $formatter ?: new ProductFormatter();
+	public function __construct( ?ProductFormatter $formatter = null, ?ProductRepository $repository = null ) {
+		$this->formatter  = $formatter ?: new ProductFormatter();
+		$this->repository = $repository ?: new ProductRepository();
 	}
 
 	public function build(): array {
@@ -63,8 +65,12 @@ final class CategoryPageBuilder {
 			return $base;
 		}
 
-		if ( 'product' === $type ) {
-			$base['data'] = $this->product_item( absint( $section['product_id'] ?? 0 ) );
+		if ( 'products' === $type ) {
+			$product_result = $this->products( $section );
+			$base['data']   = $product_result['data'];
+			if ( isset( $product_result['view_all'] ) ) {
+				$base['view_all'] = $product_result['view_all'];
+			}
 			return $base;
 		}
 
@@ -101,17 +107,82 @@ final class CategoryPageBuilder {
 		return $result;
 	}
 
-	private function product_item( int $product_id ): array {
-		if ( ! $product_id ) {
-			return array();
+	private function products( array $section ): array {
+		$product_source = sanitize_key( (string) ( $section['product_source'] ?? ( ! empty( $section['product_id'] ) ? 'single' : 'list' ) ) );
+		$data = array();
+
+		if ( 'single' === $product_source ) {
+			$product_id = absint( $section['product_id'] ?? 0 );
+			if ( $product_id ) {
+				$product = wc_get_product( $product_id );
+				if ( $product instanceof \WC_Product && 'publish' === get_post_status( $product_id ) && ! $product->is_type( 'variation' ) ) {
+					$data[] = $this->formatter->format_card( $product );
+				}
+			}
+		} else {
+			$category_ids = Request::ids( $section['category'] ?? array() );
+			$per_page     = min( 50, max( 1, absint( $section['per_page'] ?? 10 ) ?: 10 ) );
+			$params = array(
+				'page'       => 1,
+				'per_page'   => $per_page,
+				'search'     => '',
+				'type'       => null,
+				'on_sale'    => ! empty( $section['on_sale'] ) ? true : null,
+				'category'   => $category_ids,
+				'brand'      => array(),
+				'attributes' => array(),
+				'tag'        => array(),
+				'min_price'  => null,
+				'max_price'  => null,
+				'orderby'    => 'date',
+				'order'      => 'desc',
+			);
+			$query = $this->repository->query( $params );
+			foreach ( $query['products'] as $product ) {
+				$product_id = $product->get_id();
+				$data[] = $this->formatter->format_card( $product, $query['lookup'][ $product_id ] ?? array() );
+			}
 		}
 
-		$product = wc_get_product( $product_id );
-		if ( ! $product instanceof \WC_Product || 'publish' !== get_post_status( $product_id ) || $product->is_type( 'variation' ) ) {
-			return array();
+		$result = array( 'data' => $data );
+		if ( ! empty( $section['view_all_enabled'] ) ) {
+			$title = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
+			$result['view_all'] = array(
+				'title'  => $title,
+				'action' => $this->products_view_all_action( $section, $title ),
+			);
 		}
+		return $result;
+	}
 
-		return array( $this->formatter->format_card( $product ) );
+	private function products_view_all_action( array $section, string $title ): array {
+		$action = array(
+			'title'       => $title,
+			'type'        => 'all',
+			'product_id'  => null,
+			'category_id' => array(),
+			'brand_id'    => array(),
+			'on_sale'     => null,
+			'url'         => null,
+			'orderby'     => 'date',
+			'order'       => 'desc',
+		);
+		$product_source = sanitize_key( (string) ( $section['product_source'] ?? ( ! empty( $section['product_id'] ) ? 'single' : 'list' ) ) );
+		if ( 'single' === $product_source ) {
+			$product_id = absint( $section['product_id'] ?? 0 );
+			if ( $product_id ) {
+				$action['type']       = 'product';
+				$action['product_id'] = $product_id;
+			}
+			return $action;
+		}
+		$categories = Request::ids( $section['category'] ?? array() );
+		$action['category_id'] = array_values( $categories );
+		$action['on_sale']     = ! empty( $section['on_sale'] );
+		if ( $categories ) {
+			$action['type'] = 'category';
+		}
+		return $action;
 	}
 
 	/**

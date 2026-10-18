@@ -65,6 +65,7 @@
 			product: 'محصول',
 			category: 'دسته‌بندی',
 			brand: 'برند',
+			post: 'نوشته',
 			url: 'لینک'
 		};
 		return Object.keys(options).map(function (key) {
@@ -119,7 +120,7 @@
 		var $input = $container.find('.app-api-action-destination').first();
 		var $saleField = $container.find('.app-api-action-sale-field').first();
 		var $saleInput = $saleField.find('input[type="checkbox"]').first();
-		var identifierType = ['product', 'category', 'brand'].indexOf(type) !== -1;
+		var identifierType = ['product', 'category', 'brand', 'post'].indexOf(type) !== -1;
 		var saleType = String($container.attr('data-allow-sale') || '1') !== '0' && ['product', 'category', 'brand'].indexOf(type) !== -1;
 
 		$input.prop('required', false).removeAttr('pattern');
@@ -134,6 +135,10 @@
 			$field.prop('hidden', false);
 			$label.text('شناسه محصولات');
 			$input.prop('disabled', false).attr({ placeholder: 'خالی = همه محصولات', inputmode: 'numeric', pattern: '[0-9]*' });
+		} else if (type === 'post') {
+			$field.prop('hidden', false);
+			$label.text('شناسه نوشته');
+			$input.prop('disabled', false).prop('required', true).attr({ placeholder: 'مثلاً 120', inputmode: 'numeric', pattern: '[0-9]*' });
 		} else if (type === 'category') {
 			$field.prop('hidden', false);
 			$label.text('شناسه دسته‌بندی‌ها');
@@ -157,6 +162,18 @@
 			$saleInput.prop('checked', false).prop('disabled', true);
 			$saleField.prop('hidden', true);
 		}
+	}
+
+	function syncProductsSource($select) {
+		var source = String($select.val() || 'list');
+		var $container = $select.closest('[data-products-source-selector]');
+		var $single = $container.find('.app-api-products-source-single').first();
+		var $list = $container.find('.app-api-products-source-list').first();
+		var isSingle = source === 'single';
+		$single.prop('hidden', !isSingle);
+		$single.find(':input').prop('disabled', !isSingle);
+		$list.prop('hidden', isSingle);
+		$list.find(':input').prop('disabled', isSingle);
 	}
 
 	function syncCategorySelector($select) {
@@ -417,6 +434,14 @@
 		$help.text(help);
 	}
 
+	function storageGet(key) {
+		try { return window.localStorage ? localStorage.getItem(key) : null; } catch (e) { return null; }
+	}
+
+	function storageSet(key, value) {
+		try { if (window.localStorage) { localStorage.setItem(key, value); } } catch (e) {}
+	}
+
 	$(function () {
 		initSortables();
 		$('#app-api-category-active-sections').sortable({
@@ -452,12 +477,17 @@
 			syncCategorySelector($(this));
 		});
 
+		$('.app-api-products-source').each(function () {
+			syncProductsSource($(this));
+		});
+
 		$('.app-api-view-all-enabled').each(function () {
 			syncViewAll($(this));
 		});
 
 		$('.app-api-tab').on('click', function () {
 			var tab = $(this).data('tab');
+			storageSet('appApiAdminActiveTab', String(tab));
 			$('.app-api-tab').removeClass('is-active');
 			$(this).addClass('is-active');
 			$('.app-api-tab-panel').removeClass('is-active');
@@ -467,10 +497,25 @@
 		$(document).on('click', '.app-api-subtab', function () {
 			var $tabs = $(this).closest('.app-api-inner-tabs');
 			var tab = $(this).data('subtab');
+			var scope = String($tabs.data('inner-tabs') || 'default');
+			storageSet('appApiAdminSubtab:' + scope, String(tab));
 			$tabs.find('.app-api-subtab').removeClass('is-active');
 			$(this).addClass('is-active');
 			$tabs.find('.app-api-subtab-panel').removeClass('is-active');
 			$tabs.find('.app-api-subtab-panel[data-subpanel="' + tab + '"]').addClass('is-active');
+		});
+
+		var savedMainTab = storageGet('appApiAdminActiveTab');
+		if (savedMainTab && $('.app-api-tab[data-tab="' + savedMainTab + '"]').length) {
+			$('.app-api-tab[data-tab="' + savedMainTab + '"]').trigger('click');
+		}
+		$('.app-api-inner-tabs').each(function () {
+			var $tabs = $(this);
+			var scope = String($tabs.data('inner-tabs') || 'default');
+			var saved = storageGet('appApiAdminSubtab:' + scope);
+			if (saved && $tabs.find('.app-api-subtab[data-subtab="' + saved + '"]').length) {
+				$tabs.find('.app-api-subtab[data-subtab="' + saved + '"]').trigger('click');
+			}
 		});
 
 		$('#app-api-add-section').on('click', function () {
@@ -485,6 +530,7 @@
 			built.card.find('.app-api-view-all-enabled').each(function () { syncViewAll($(this)); });
 			built.card.find('.app-api-action-type').each(function () { syncActionField($(this)); });
 			built.card.find('.app-api-category-source').each(function () { syncCategorySelector($(this)); });
+			built.card.find('.app-api-products-source').each(function () { syncProductsSource($(this)); });
 			built.card.find('.app-api-items-sortable').sortable({
 				handle: '.app-api-item-drag',
 				placeholder: 'app-api-repeater-item ui-sortable-placeholder'
@@ -564,6 +610,10 @@
 			syncCategorySelector($(this));
 		});
 
+		$(document).on('change', '.app-api-products-source', function () {
+			syncProductsSource($(this));
+		});
+
 		$(document).on('change', '.app-api-view-all-enabled', function () {
 			syncViewAll($(this));
 		});
@@ -599,6 +649,7 @@
 			built.card.find('.app-api-items-sortable').sortable({ handle: '.app-api-item-drag', placeholder: 'app-api-repeater-item ui-sortable-placeholder' });
 			built.card.find('.app-api-action-type').each(function () { syncActionField($(this)); });
 			built.card.find('.app-api-category-page-source').each(function () { syncCategoryPageSource($(this)); });
+			built.card.find('.app-api-products-source').each(function () { syncProductsSource($(this)); });
 			openAccordion(built.card);
 			updateCategoryOrderInput();
 		});

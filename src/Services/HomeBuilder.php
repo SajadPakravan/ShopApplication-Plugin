@@ -144,6 +144,24 @@ final class HomeBuilder {
 	}
 
 	private function products( array $section ): array {
+		$product_source = sanitize_key( (string) ( $section['product_source'] ?? ( ! empty( $section['product_id'] ) ? 'single' : 'list' ) ) );
+		if ( 'single' === $product_source ) {
+			$data       = array();
+			$product_id = absint( $section['product_id'] ?? 0 );
+			if ( $product_id ) {
+				$product = wc_get_product( $product_id );
+				if ( $product instanceof \WC_Product && 'publish' === get_post_status( $product_id ) && ! $product->is_type( 'variation' ) ) {
+					$data[] = $this->formatter->format_card( $product );
+				}
+			}
+			$result = array( 'data' => $data );
+			$view_all = $this->view_all( $section );
+			if ( null !== $view_all ) {
+				$result['view_all'] = $view_all;
+			}
+			return $result;
+		}
+
 		$category_ids = Request::ids( $section['category'] ?? array() );
 		if ( ! $category_ids ) {
 			$category_ids = $this->resolve_term_ids(
@@ -496,6 +514,16 @@ final class HomeBuilder {
 		);
 
 		if ( 'products' === $type ) {
+			$product_source = sanitize_key( (string) ( $section['product_source'] ?? ( ! empty( $section['product_id'] ) ? 'single' : 'list' ) ) );
+			if ( 'single' === $product_source ) {
+				$product_id = absint( $section['product_id'] ?? 0 );
+				if ( $product_id ) {
+					$action['type']       = 'product';
+					$action['product_id'] = $product_id;
+				}
+				return $action;
+			}
+
 			$categories = Request::ids( $section['category'] ?? array() );
 			$brands     = Request::ids( $section['brand'] ?? array() );
 

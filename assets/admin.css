@@ -233,3 +233,10 @@
 	.app-api-detail-activation-card { padding: 18px; }
 	.app-api-detail-toggle-grid { grid-template-columns: 1fr; }
 }
+
+/* Product section source selector (2.6.1) */
+.app-api-products-source-selector > label:first-of-type { display:block; max-width:420px; margin-bottom:14px; }
+.app-api-products-source-single,
+.app-api-products-source-list { margin-top:14px; }
+.app-api-products-source-single[hidden],
+.app-api-products-source-list[hidden] { display:none!important; }
