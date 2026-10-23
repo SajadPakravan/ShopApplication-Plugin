@@ -318,6 +318,7 @@ final class Config {
 			if ( 'category' === $type ) {
 				$section['category_source'] = 'custom';
 				$section['parent_category'] = 0;
+				$section['include_children'] = false;
 			}
 			$section['view_all_enabled'] = true;
 			$section['view_all_title']   = 'مشاهده همه';
@@ -441,6 +442,7 @@ final class Config {
 					$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
 					$clean['category_source'] = in_array( $source, array( 'custom', 'parent' ), true ) ? $source : 'custom';
 					$clean['parent_category'] = absint( $section['parent_category'] ?? 0 );
+					$clean['include_children'] = ! empty( $section['include_children'] );
 				}
 				$clean['include_names'] = isset( $config['include_names'] ) && is_array( $config['include_names'] ) ? array_values( $config['include_names'] ) : array();
 				$clean['include_slugs'] = isset( $config['include_slugs'] ) && is_array( $config['include_slugs'] ) ? array_values( $config['include_slugs'] ) : array();
@@ -611,6 +613,7 @@ final class Config {
 			$section['category_source'] = 'custom';
 			$section['include']         = array();
 			$section['parent_category'] = 0;
+			$section['include_children'] = false;
 		}
 		return $section;
 	}
@@ -662,6 +665,7 @@ final class Config {
 				$section['category_source'] = in_array( $source, array( 'custom', 'parents', 'children', 'tree' ), true ) ? $source : 'custom';
 				$section['include'] = self::ids( $raw['include'] ?? array() );
 				$section['parent_category'] = absint( $raw['parent_category'] ?? 0 );
+				$section['include_children'] = ! empty( $raw['include_children'] );
 			}
 			$sections[ $key ] = $section;
 		}

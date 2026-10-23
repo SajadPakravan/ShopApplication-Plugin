@@ -182,6 +182,7 @@ final class SettingsPage {
 					$source = sanitize_key( (string) ( $section['category_source'] ?? 'custom' ) );
 					$clean['category_source'] = in_array( $source, array( 'custom', 'parent' ), true ) ? $source : 'custom';
 					$clean['parent_category'] = absint( $section['parent_category'] ?? 0 );
+					$clean['include_children'] = ! empty( $section['include_children'] );
 				}
 				$clean['view_all_enabled']  = ! empty( $section['view_all_enabled'] );
 				$clean['view_all_title']    = sanitize_text_field( (string) ( $section['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه';
@@ -349,6 +350,7 @@ final class SettingsPage {
 				$clean['category_source'] = in_array( $source, array( 'custom', 'parents', 'children', 'tree' ), true ) ? $source : 'custom';
 				$clean['include'] = Request::ids( $section['include'] ?? array() );
 				$clean['parent_category'] = absint( $section['parent_category'] ?? 0 );
+				$clean['include_children'] = ! empty( $section['include_children'] );
 			}
 			$result['sections'][ $key ] = $clean;
 		}
@@ -833,6 +835,7 @@ final class SettingsPage {
 						<label class="app-api-parent-category-field" <?php echo 'parent' === $category_source ? '' : 'hidden'; ?>><span>دسته‌بندی والد</span><select name="<?php echo esc_attr( $name ); ?>[parent_category]"><option value="0">انتخاب دسته‌بندی والد</option><?php $this->render_parent_product_category_options( $parent_category ); ?></select></label>
 					</div>
 					<label class="app-api-custom-category-field" <?php echo 'custom' === $category_source ? '' : 'hidden'; ?>><span>شناسه دسته‌بندی‌ها به ترتیب نمایش</span><input type="text" dir="ltr" name="<?php echo esc_attr( $name ); ?>[include]" value="<?php echo esc_attr( implode( ',', Request::ids( $section['include'] ?? array() ) ) ); ?>" placeholder="مثلاً 55,166,350"></label>
+					<label class="app-api-check app-api-custom-category-children" <?php echo 'custom' === $category_source ? '' : 'hidden'; ?>><input type="checkbox" name="<?php echo esc_attr( $name ); ?>[include_children]" value="1" <?php checked( ! empty( $section['include_children'] ) ); ?>> زیر‌دسته‌های دسته‌بندی‌های مشخص‌شده نیز نمایش داده شوند</label>
 					<p class="description app-api-parent-category-help" <?php echo 'parent' === $category_source ? '' : 'hidden'; ?>>در این حالت، همه زیر‌دسته‌های مستقیم دسته‌بندی والد انتخاب‌شده با ترتیب تعریف‌شده در فروشگاه نمایش داده می‌شوند.</p>
 				</div>
 			<?php endif; ?>
@@ -1176,6 +1179,7 @@ final class SettingsPage {
 							</label>
 							<label class="app-api-category-page-parent" <?php echo 'children' === $source ? '' : 'hidden'; ?>><span>دسته‌بندی مبنا</span><select name="<?php echo esc_attr( $name ); ?>[parent_category]"><option value="0">انتخاب دسته‌بندی</option><?php $this->render_all_product_category_options( absint( $section['parent_category'] ?? 0 ) ); ?></select></label>
 							<label class="app-api-category-page-custom" <?php echo 'custom' === $source ? '' : 'hidden'; ?>><span>شناسه دسته‌بندی‌ها به ترتیب نمایش</span><input type="text" dir="ltr" name="<?php echo esc_attr( $name ); ?>[include]" value="<?php echo esc_attr( implode( ',', Request::ids( $section['include'] ?? array() ) ) ); ?>" placeholder="مثلاً 55,166,350"></label>
+							<label class="app-api-check app-api-category-page-custom-children" <?php echo 'custom' === $source ? '' : 'hidden'; ?>><input type="checkbox" name="<?php echo esc_attr( $name ); ?>[include_children]" value="1" <?php checked( ! empty( $section['include_children'] ) ); ?>> زیر‌دسته‌های دسته‌بندی‌های مشخص‌شده نیز نمایش داده شوند</label>
 							<p class="description app-api-category-page-source-help"></p>
 						</div>
 					</div>

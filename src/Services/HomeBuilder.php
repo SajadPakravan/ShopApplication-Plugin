@@ -236,7 +236,7 @@ final class HomeBuilder {
 				)
 			);
 
-			return $this->format_terms( $terms );
+			return $this->format_terms( $terms, true );
 		}
 
 		$include = Request::ids( $section['include'] ?? array() );
@@ -257,7 +257,7 @@ final class HomeBuilder {
 			)
 		);
 
-		return $this->format_terms( $terms );
+		return $this->format_terms( $terms, ! empty( $section['include_children'] ) );
 	}
 
 	private function brands( array $section ): array {
@@ -365,7 +365,7 @@ final class HomeBuilder {
 	 * category APIs. Every category always exposes a `children` array; when the
 	 * term has descendants they are nested recursively, otherwise it is empty.
 	 */
-	private function format_terms( $terms ): array {
+	private function format_terms( $terms, bool $include_children = true ): array {
 		if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
 			return array();
 		}
@@ -374,7 +374,17 @@ final class HomeBuilder {
 		$result = array();
 		foreach ( $terms as $term ) {
 			if ( $term instanceof \WP_Term ) {
-				$result[] = $this->format_category_tree_term( $term, $tree['children'], $tree['counts'], array() );
+				if ( $include_children ) {
+					$result[] = $this->format_category_tree_term( $term, $tree['children'], $tree['counts'], array() );
+				} else {
+					$result[] = array(
+						'id'       => (int) $term->term_id,
+						'name'     => (string) $term->name,
+						'count'    => (int) ( $tree['counts'][ (int) $term->term_id ] ?? $term->count ),
+						'image'    => Taxonomy::term_image_url( $term ),
+						'children' => array(),
+					);
+				}
 			}
 		}
 		return $result;

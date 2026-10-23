@@ -203,12 +203,12 @@ final class CategoryPageBuilder {
 		}
 
 		if ( 'parents' === $source ) {
-			return $this->terms_for_parent( 0 );
+			return $this->terms_for_parent( 0, false );
 		}
 
 		if ( 'children' === $source ) {
 			$parent_id = absint( $section['parent_category'] ?? 0 );
-			return $parent_id ? $this->terms_for_parent( $parent_id ) : array();
+			return $parent_id ? $this->terms_for_parent( $parent_id, false ) : array();
 		}
 
 		$include = Request::ids( $section['include'] ?? array() );
@@ -240,10 +240,10 @@ final class CategoryPageBuilder {
 			}
 		}
 
-		return $this->format_terms( $ordered );
+		return $this->format_terms( $ordered, ! empty( $section['include_children'] ) );
 	}
 
-	private function terms_for_parent( int $parent_id ): array {
+	private function terms_for_parent( int $parent_id, bool $include_children = false ): array {
 		$terms = get_terms(
 			array(
 				'taxonomy'   => 'product_cat',
@@ -255,7 +255,7 @@ final class CategoryPageBuilder {
 			return array();
 		}
 		$this->sort_terms( $terms );
-		return $this->format_terms( $terms );
+		return $this->format_terms( $terms, $include_children );
 	}
 
 	private function full_category_tree(): array {
@@ -297,21 +297,55 @@ final class CategoryPageBuilder {
 		return $result;
 	}
 
-	private function format_terms( array $terms ): array {
-		$ids    = array();
+	private function format_terms( array $terms, bool $include_children = false ): array {
+		$context = $this->category_tree_context();
+		$result  = array();
 		foreach ( $terms as $term ) {
-			if ( $term instanceof \WP_Term ) {
+			if ( ! $term instanceof \WP_Term ) {
+				continue;
+			}
+			$item = $this->format_term( $term, $context['counts'] );
+			$item['children'] = $include_children
+				? $this->build_tree_branch( (int) $term->term_id, $context['groups'], $context['counts'] )
+				: array();
+			$result[] = $item;
+		}
+		return $result;
+	}
+
+	private function category_tree_context(): array {
+		static $context = null;
+		if ( is_array( $context ) ) {
+			return $context;
+		}
+
+		$terms = get_terms(
+			array(
+				'taxonomy'   => 'product_cat',
+				'hide_empty' => false,
+			)
+		);
+		$groups = array();
+		$ids    = array();
+		if ( ! is_wp_error( $terms ) && is_array( $terms ) ) {
+			foreach ( $terms as $term ) {
+				if ( ! $term instanceof \WP_Term ) {
+					continue;
+				}
+				$groups[ (int) $term->parent ][] = $term;
 				$ids[] = (int) $term->term_id;
 			}
 		}
-		$counts = Taxonomy::published_product_counts( 'product_cat', $ids );
-		$result = array();
-		foreach ( $terms as $term ) {
-			if ( $term instanceof \WP_Term ) {
-				$result[] = $this->format_term( $term, $counts );
-			}
+		foreach ( $groups as &$group ) {
+			$this->sort_terms( $group );
 		}
-		return $result;
+		unset( $group );
+
+		$context = array(
+			'groups' => $groups,
+			'counts' => Taxonomy::published_product_counts( 'product_cat', $ids ),
+		);
+		return $context;
 	}
 
 	private function format_term( \WP_Term $term, array $counts ): array {

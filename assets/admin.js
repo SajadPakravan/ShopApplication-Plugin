@@ -180,12 +180,15 @@
 		var source = String($select.val() || 'custom');
 		var $container = $select.closest('[data-category-selector]');
 		var $custom = $container.find('.app-api-custom-category-field').first();
+		var $customChildren = $container.find('.app-api-custom-category-children').first();
 		var $parent = $container.find('.app-api-parent-category-field').first();
 		var $help = $container.find('.app-api-parent-category-help').first();
 		var useParent = source === 'parent';
 
 		$custom.prop('hidden', useParent);
 		$custom.find(':input').prop('disabled', useParent);
+		$customChildren.prop('hidden', useParent);
+		$customChildren.find(':input').prop('disabled', useParent);
 		$parent.prop('hidden', !useParent);
 		$parent.find(':input').prop('disabled', !useParent);
 		$help.prop('hidden', !useParent);
@@ -411,6 +414,7 @@
 		var source = String($select.val() || 'custom');
 		var $container = $select.closest('[data-category-page-selector]');
 		var $custom = $container.find('.app-api-category-page-custom').first();
+		var $customChildren = $container.find('.app-api-category-page-custom-children').first();
 		var $parent = $container.find('.app-api-category-page-parent').first();
 		var $help = $container.find('.app-api-category-page-source-help').first();
 		var isCustom = source === 'custom';
@@ -418,6 +422,8 @@
 
 		$custom.prop('hidden', !isCustom);
 		$custom.find(':input').prop('disabled', !isCustom);
+		$customChildren.prop('hidden', !isCustom);
+		$customChildren.find(':input').prop('disabled', !isCustom);
 		$parent.prop('hidden', !isChildren);
 		$parent.find(':input').prop('disabled', !isChildren);
 
@@ -427,7 +433,7 @@
 		} else if (source === 'children') {
 			help = 'فقط زیر‌دسته‌های مستقیم دسته‌بندی انتخاب‌شده نمایش داده می‌شوند.';
 		} else if (source === 'custom') {
-			help = 'فقط شناسه‌های واردشده و دقیقاً با همان ترتیب نمایش داده می‌شوند.';
+			help = 'فقط شناسه‌های واردشده و دقیقاً با همان ترتیب نمایش داده می‌شوند. در صورت فعال‌کردن نمایش زیر‌دسته‌ها، فرزندان هر دسته داخل children قرار می‌گیرند.';
 		} else if (source === 'tree') {
 			help = 'همه دسته‌بندی‌های والد همراه تمام زیر‌دسته‌هایشان به‌صورت ساختار درختی برگردانده می‌شوند.';
 		}
