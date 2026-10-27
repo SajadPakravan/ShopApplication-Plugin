@@ -1,4 +1,4 @@
-# Application API 2.6.0
+# Application API 2.6.4
 
 ## Endpoints
 
@@ -8,35 +8,9 @@
 - Categories page: `/wp-json/app-api/v1/categories`
 - Category detail: `/wp-json/app-api/v1/categories/{id}`
 
-## Categories page
-
-The `/categories` response follows the configurable page-builder contract:
-
-```json
-{
-  "success": true,
-  "sections": []
-}
-```
-
-Administrators can add and order these section types:
-
-- `image`: same image/banner/menu-style items and actions used elsewhere in the plugin.
-- `product`: one specific published WooCommerce product by ID.
-- `category`: category collections.
-
-A category section supports four source modes:
-
-1. `parents`: top-level product categories only.
-2. `children`: direct child categories of one selected category.
-3. `custom`: explicit category IDs in the administrator-defined order.
-4. `tree`: all top-level categories with every descendant nested in `children`.
-
-Every category item contains `id`, `name`, `count`, and the original/full `image`. Tree mode additionally contains a nested `children` array.
-
 ## Category detail
 
-`/categories/{id}` is fixed and has no page-builder sections. It returns the category itself plus hierarchy information:
+`/categories/{id}` has a fixed semantic structure. After the category information, the API returns direct child categories, then the product list, then the brand list.
 
 ```json
 {
@@ -48,20 +22,33 @@ Every category item contains `id`, `name`, `count`, and the original/full `image
     "image": "...",
     "count": 12,
     "parents": [],
-    "children": []
+    "children": [],
+    "products": [
+      {
+        "data": [],
+        "view_all": {}
+      }
+    ],
+    "brands": [
+      {
+        "data": [],
+        "view_all": {}
+      }
+    ]
   }
 }
 ```
 
-`parents` is ordered from the top-level ancestor to the direct parent. `children` contains all descendants as a nested tree.
+`children` contains only direct child categories. Each child follows the common category item contract and therefore contains `id`, `name`, `count`, `image`, and `children: []`.
 
+The `products` list uses the same product-card formatter as the product list, Home product sections, and related products. The `brands` list uses the same brand item contract as Home brand sections: `id`, `name`, `count`, and `image`. Brand `count` is scoped to products belonging to the selected category.
 
-## 2.6.1
-- Category-page product sections use `type: products` and can show either one product or a category-filtered product list.
-- Home product sections can also show one specific product.
-- Image actions support `type: post` with `post_id`.
+The administrator can enable/disable the product and brand blocks independently, set how many items each block initially returns, and enable/disable its `view_all` button. Their order is fixed: products first, brands second. No row/column/direction settings are used on category detail.
 
-## 2.6.3
-- Custom category sections on Home and Categories pages can optionally include descendants.
-- Every category item returned by the Categories page API now always contains a `children` array.
-- When custom descendant display is disabled, `children` is always `[]`; when enabled, descendants are nested recursively.
+## Product detail
+
+The product-detail response keeps its fixed semantic order after `variations`: reviews first and related products second. The output-layout controls (direction, rows, columns) were removed from the product-detail administration settings because these blocks are fixed API data blocks rather than page-builder sections.
+
+## Categories page
+
+The `/categories` landing page remains configurable with `image`, `products`, and `category` sections. Category items always contain a `children` array. Custom category sections may optionally include descendants; otherwise `children` is `[]`.

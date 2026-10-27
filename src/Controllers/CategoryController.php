@@ -3,6 +3,7 @@
 namespace AppAPI\Controllers;
 
 use AppAPI\Services\CategoryPageBuilder;
+use AppAPI\Services\CategoryDetailBuilder;
 use AppAPI\Support\Response;
 use AppAPI\Support\Taxonomy;
 
@@ -44,8 +45,13 @@ final class CategoryController {
 			'image'       => Taxonomy::term_image_url( $term ),
 			'count'       => $this->category_count( $term ),
 			'parents'     => $this->parent_path( $term ),
-			'children'    => $this->children_tree( (int) $term->term_id ),
+			'children'    => $this->direct_children( (int) $term->term_id ),
 		);
+
+		// Fixed semantic order after direct children: products first, brands second.
+		foreach ( ( new CategoryDetailBuilder() )->build( $term ) as $key => $value ) {
+			$data[ $key ] = $value;
+		}
 
 		return Response::success( array( 'success' => true, 'data' => $data ) );
 	}
@@ -80,9 +86,11 @@ final class CategoryController {
 	}
 
 	/**
-	 * Returns all descendants as a nested tree, preserving the store-defined category order.
+	 * Returns only the direct children of the selected category.
+	 * Every item keeps the stable category-list contract and therefore includes
+	 * an empty children array; deeper descendants are intentionally not nested here.
 	 */
-	private function children_tree( int $parent_id ): array {
+	private function direct_children( int $parent_id ): array {
 		$terms = get_terms(
 			array(
 				'taxonomy'   => 'product_cat',
@@ -105,7 +113,7 @@ final class CategoryController {
 				continue;
 			}
 			$item             = $this->term_payload( $child, $counts );
-			$item['children'] = $this->children_tree( (int) $child->term_id );
+			$item['children'] = array();
 			$result[]         = $item;
 		}
 

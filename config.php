@@ -17,6 +17,7 @@ final class Config {
 	public const OPTION_HOME_ENDPOINT       = 'app_api_home_endpoint';
 	public const OPTION_PRODUCT_DETAIL_CONFIG = 'app_api_product_detail_configuration';
 	public const OPTION_CATEGORY_CONFIG       = 'app_api_category_page_configuration';
+	public const OPTION_CATEGORY_DETAIL_CONFIG = 'app_api_category_detail_configuration';
 
 	/**
 	 * Types the administrator can add from the visual home-page API builder.
@@ -705,7 +706,6 @@ final class Config {
 					'enabled' => true,
 					'title' => 'محصولات مرتبط',
 					'subtitle' => '',
-					'layout' => array( 'direction' => 'horizontal', 'rows' => 1, 'columns' => 1 ),
 					'per_page' => 10,
 					'on_sale' => false,
 					'view_all_enabled' => true,
@@ -719,7 +719,6 @@ final class Config {
 					'enabled' => true,
 					'title' => 'نظرات کاربران',
 					'subtitle' => '',
-					'layout' => array( 'direction' => 'vertical', 'rows' => 1, 'columns' => 1 ),
 					'per_page' => 10,
 					'view_all_enabled' => true,
 					'view_all_title' => 'مشاهده همه',
@@ -736,18 +735,12 @@ final class Config {
 		$sections = array();
 		foreach ( $defaults['sections'] as $key => $default ) {
 			$raw = isset( $raw_sections[ $key ] ) && is_array( $raw_sections[ $key ] ) ? $raw_sections[ $key ] : array();
-			$layout = isset( $raw['layout'] ) && is_array( $raw['layout'] ) ? $raw['layout'] : array();
 			$section = array(
 				'id' => self::sanitize_api_id( (string) ( $raw['id'] ?? $default['id'] ), $default['id'] ),
 				'type' => $default['type'],
 				'enabled' => array_key_exists( 'enabled', $raw ) ? ! empty( $raw['enabled'] ) : true,
 				'title' => sanitize_text_field( (string) ( $raw['title'] ?? $default['title'] ) ),
 				'subtitle' => sanitize_text_field( (string) ( $raw['subtitle'] ?? '' ) ),
-				'layout' => array(
-					'direction' => in_array( $layout['direction'] ?? '', array( 'horizontal', 'vertical' ), true ) ? $layout['direction'] : $default['layout']['direction'],
-					'rows' => self::positive_int( $layout['rows'] ?? 1, 12 ),
-					'columns' => self::positive_int( $layout['columns'] ?? 1, 12 ),
-				),
 				'per_page' => min( 50, max( 1, absint( $raw['per_page'] ?? $default['per_page'] ) ?: 10 ) ),
 				'view_all_enabled' => array_key_exists( 'view_all_enabled', $raw ) ? ! empty( $raw['view_all_enabled'] ) : true,
 				'view_all_title' => sanitize_text_field( (string) ( $raw['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه',
@@ -769,6 +762,52 @@ final class Config {
 
 		// Product detail order is semantic and fixed: reviews first, related products second.
 		return array( 'order' => array( 'reviews', 'related_products' ), 'sections' => $sections );
+	}
+
+	public static function category_detail_configuration(): array {
+		$saved = get_option( self::OPTION_CATEGORY_DETAIL_CONFIG, null );
+		if ( ! is_array( $saved ) || empty( $saved['sections'] ) ) {
+			$saved = self::default_category_detail_configuration();
+		}
+		return self::normalize_category_detail_configuration( $saved );
+	}
+
+	public static function default_category_detail_configuration(): array {
+		return array(
+			'sections' => array(
+				'products' => array(
+					'enabled' => true,
+					'per_page' => 10,
+					'view_all_enabled' => true,
+					'view_all_title' => 'مشاهده همه',
+				),
+				'brands' => array(
+					'enabled' => true,
+					'per_page' => 10,
+					'view_all_enabled' => true,
+					'view_all_title' => 'مشاهده همه',
+				),
+			),
+		);
+	}
+
+	public static function normalize_category_detail_configuration( array $configuration ): array {
+		$defaults = self::default_category_detail_configuration();
+		$raw_sections = isset( $configuration['sections'] ) && is_array( $configuration['sections'] ) ? $configuration['sections'] : array();
+		$sections = array();
+
+		foreach ( $defaults['sections'] as $key => $default ) {
+			$raw = isset( $raw_sections[ $key ] ) && is_array( $raw_sections[ $key ] ) ? $raw_sections[ $key ] : array();
+			$per_page = absint( $raw['per_page'] ?? $default['per_page'] );
+			$sections[ $key ] = array(
+				'enabled' => array_key_exists( 'enabled', $raw ) ? ! empty( $raw['enabled'] ) : true,
+				'per_page' => min( 50, max( 1, $per_page ?: 10 ) ),
+				'view_all_enabled' => array_key_exists( 'view_all_enabled', $raw ) ? ! empty( $raw['view_all_enabled'] ) : true,
+				'view_all_title' => sanitize_text_field( (string) ( $raw['view_all_title'] ?? 'مشاهده همه' ) ) ?: 'مشاهده همه',
+			);
+		}
+
+		return array( 'sections' => $sections );
 	}
 
 	public static function home_endpoint(): string {
