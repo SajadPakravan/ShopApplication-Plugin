@@ -56,7 +56,7 @@ final class Plugin {
 		}
 		?>
 		<div class="notice notice-error">
-			<p><?php esc_html_e( 'Application API requires WooCommerce to be installed and active.', 'application-api' ); ?></p>
+			<p><?php esc_html_e( 'اپلیکیشن فروشگاه برای کارکرد صحیح به ووکامرس فعال نیاز دارد.', 'application-api' ); ?></p>
 		</div>
 		<?php
 	}

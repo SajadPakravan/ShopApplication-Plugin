@@ -49,7 +49,7 @@ final class AuthToken {
 		update_user_meta( $user_id, self::META_KEY, $tokens );
 
 		return array(
-			'access_token' => $token,
+			'token' => $token,
 		);
 	}
 

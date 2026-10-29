@@ -244,14 +244,14 @@ final class AuthService {
 
 	private function auth_payload( \WP_User $user ): array {
 		$token_data = AuthToken::issue( (int) $user->ID );
-		$mobile     = $this->user_mobile( (int) $user->ID );
+		$phone      = $this->user_mobile( (int) $user->ID );
 
 		return array(
 			'id'           => (int) $user->ID,
 			'username'     => (string) $user->user_login,
 			'email'        => (string) $user->user_email,
-			'mobile'       => $mobile,
-			'access_token' => (string) ( $token_data['access_token'] ?? '' ),
+			'phone'        => $phone,
+			'token'        => (string) ( $token_data['token'] ?? '' ),
 		);
 	}
 

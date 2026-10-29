@@ -9,7 +9,7 @@ use AppAPI\Support\Request;
 defined( 'ABSPATH' ) || exit;
 
 final class SettingsPage {
-	private $page_hook = '';
+	private $page_hooks = array();
 
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'menu' ) );
@@ -18,14 +18,52 @@ final class SettingsPage {
 	}
 
 	public function menu(): void {
-		$this->page_hook = add_menu_page(
-			__( 'Application API', 'application-api' ),
-			__( 'Application API', 'application-api' ),
-			'manage_options',
-			'application-api',
-			array( $this, 'render' ),
-			'dashicons-rest-api',
+		$capability = 'manage_options';
+
+		$this->page_hooks[] = add_menu_page(
+			'اپلیکیشن فروشگاه',
+			'اپلیکیشن فروشگاه',
+			$capability,
+			'shop-application',
+			array( $this, 'render_management' ),
+			'dashicons-smartphone',
 			56
+		);
+
+		$this->page_hooks[] = add_submenu_page(
+			'shop-application',
+			'مدیریت اپلیکیشن',
+			'مدیریت اپلیکیشن',
+			$capability,
+			'shop-application',
+			array( $this, 'render_management' )
+		);
+
+		$this->page_hooks[] = add_submenu_page(
+			'shop-application',
+			'وب‌سرویس‌ها',
+			'وب‌سرویس‌ها',
+			$capability,
+			'shop-application-webservices',
+			array( $this, 'render_webservices' )
+		);
+
+		$this->page_hooks[] = add_submenu_page(
+			'shop-application',
+			'تنظیمات',
+			'تنظیمات',
+			$capability,
+			'shop-application-settings',
+			array( $this, 'render_plugin_settings' )
+		);
+
+		$this->page_hooks[] = add_submenu_page(
+			'shop-application',
+			'ابزارها',
+			'ابزارها',
+			$capability,
+			'shop-application-tools',
+			array( $this, 'render_tools' )
 		);
 	}
 
@@ -78,7 +116,7 @@ final class SettingsPage {
 	}
 
 	public function enqueue_assets( string $hook ): void {
-		if ( $hook !== $this->page_hook && 'toplevel_page_application-api' !== $hook ) {
+		if ( ! in_array( $hook, array_filter( $this->page_hooks ), true ) ) {
 			return;
 		}
 
@@ -444,68 +482,206 @@ final class SettingsPage {
 		return $slug;
 	}
 
-	public function render(): void {
+	private function guard_admin(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to access this page.', 'application-api' ) );
+			wp_die( 'شما اجازه دسترسی به این بخش را ندارید.' );
+		}
+	}
+
+	private function render_shell_start( string $title, string $description = '' ): void {
+		$this->guard_admin();
+		?>
+		<div class="wrap app-api-admin-wrap shop-application-admin" dir="rtl">
+			<div class="app-api-header shop-application-header">
+				<div>
+					<h1><?php echo esc_html( $title ); ?></h1>
+					<?php if ( $description ) : ?><p><?php echo esc_html( $description ); ?></p><?php endif; ?>
+				</div>
+				<span class="dashicons dashicons-smartphone shop-application-header-icon" aria-hidden="true"></span>
+			</div>
+			<?php settings_errors( 'application-api' ); ?>
+		<?php
+	}
+
+	private function render_shell_end(): void {
+		echo '</div>';
+	}
+
+	public function render_management(): void {
+		$this->render_shell_start( 'مدیریت اپلیکیشن', 'مرکز مدیریت وب‌سرویس‌ها و امکانات اپلیکیشن فروشگاه.' );
+		$webservices_url = admin_url( 'admin.php?page=shop-application-webservices' );
+		?>
+		<div class="shop-application-hero app-api-card">
+			<div>
+				<h2>اپلیکیشن فروشگاه</h2>
+				<p>وب‌سرویس‌های فروشگاه، احراز هویت و اطلاعات مشتریان از این بخش مدیریت می‌شوند. تنظیمات فعلی نسخه‌های قبلی نیز حفظ شده‌اند.</p>
+			</div>
+			<a class="button button-primary" href="<?php echo esc_url( $webservices_url ); ?>">مدیریت وب‌سرویس‌ها</a>
+		</div>
+		<div class="shop-application-summary-grid">
+			<div class="app-api-card shop-application-summary"><span class="dashicons dashicons-rest-api"></span><strong>وب‌سرویس‌ها</strong><small>مدیریت APIهای مشتریان، احراز هویت، مدیران و نوتیفیکیشن</small></div>
+			<div class="app-api-card shop-application-summary"><span class="dashicons dashicons-cart"></span><strong>ووکامرس</strong><small><?php echo class_exists( 'WooCommerce' ) ? 'فعال و در دسترس' : 'در دسترس نیست'; ?></small></div>
+			<div class="app-api-card shop-application-summary"><span class="dashicons dashicons-shield"></span><strong>دسترسی مدیریت</strong><small>این منو فقط برای مدیران دارای manage_options نمایش داده می‌شود.</small></div>
+		</div>
+		<?php
+		$this->render_shell_end();
+	}
+
+	public function render_webservices(): void {
+		$service = isset( $_GET['service'] ) ? sanitize_key( wp_unslash( $_GET['service'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$module  = isset( $_GET['module'] ) ? sanitize_key( wp_unslash( $_GET['module'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		if ( 'customers' === $service ) {
+			$this->render_customer_webservices( $module );
+			return;
+		}
+		if ( 'auth' === $service ) {
+			$this->render_shell_start( 'وب‌سرویس احراز هویت', 'ورود و ثبت‌نام کاربران و صدور توکن دسترسی.' );
+			$this->render_back_link( admin_url( 'admin.php?page=shop-application-webservices' ), 'بازگشت به وب‌سرویس‌ها' );
+			$this->render_auth_information();
+			$this->render_shell_end();
+			return;
+		}
+		if ( 'admins' === $service ) {
+			$this->render_placeholder_service( 'وب‌سرویس مدیران', 'وب‌سرویس‌های مدیریتی فروشگاه در نسخه‌های بعدی در این قسمت اضافه می‌شوند.' );
+			return;
+		}
+		if ( 'notifications' === $service ) {
+			$this->render_placeholder_service( 'وب‌سرویس نوتیفیکیشن', 'مدیریت توکن دستگاه‌ها، Push Notification و اعلان‌های فروشگاه در این قسمت توسعه داده می‌شود.' );
+			return;
 		}
 
+		$this->render_shell_start( 'وب‌سرویس‌ها', 'وب‌سرویس موردنظر را برای مشاهده، تنظیم و مستندسازی انتخاب کن.' );
+		?>
+		<div class="shop-service-grid">
+			<?php $this->render_service_card( 'dashicons-groups', 'وب‌سرویس مشتریان', 'APIهای مورد استفاده کاربران اپلیکیشن؛ شامل صفحات عمومی فروشگاه و اطلاعات حساب کاربران واردشده.', admin_url( 'admin.php?page=shop-application-webservices&service=customers' ) ); ?>
+			<?php $this->render_service_card( 'dashicons-businessperson', 'وب‌سرویس مدیران', 'زیرساخت APIهای مدیریتی برای مدیریت فروشگاه، سفارش‌ها، محصولات و عملیات مدیریتی. این بخش در ادامه توسعه داده می‌شود.', admin_url( 'admin.php?page=shop-application-webservices&service=admins' ) ); ?>
+			<?php $this->render_service_card( 'dashicons-lock', 'وب‌سرویس احراز هویت', 'ورود و ثبت‌نام با نام کاربری، ایمیل یا شماره همراه و دریافت توکن امن برای دسترسی به APIهای نیازمند حساب کاربری.', admin_url( 'admin.php?page=shop-application-webservices&service=auth' ) ); ?>
+			<?php $this->render_service_card( 'dashicons-bell', 'وب‌سرویس نوتیفیکیشن', 'بخش آینده برای مدیریت اعلان‌ها، توکن دستگاه‌ها و پیام‌های هدفمند مرتبط با سفارش، سبد خرید و محصولات.', admin_url( 'admin.php?page=shop-application-webservices&service=notifications' ) ); ?>
+		</div>
+		<?php
+		$this->render_shell_end();
+	}
+
+	private function render_customer_webservices( string $module ): void {
+		$this->render_shell_start( 'وب‌سرویس مشتریان', 'APIهای قابل استفاده در اپلیکیشن فروشگاه؛ عمومی یا وابسته به حساب کاربری.' );
+		$this->render_back_link( admin_url( 'admin.php?page=shop-application-webservices' ), 'بازگشت به وب‌سرویس‌ها' );
+
+		if ( $module ) {
+			$this->render_back_link( admin_url( 'admin.php?page=shop-application-webservices&service=customers' ), 'بازگشت به وب‌سرویس مشتریان' );
+			switch ( $module ) {
+				case 'home':
+					$this->render_home_settings();
+					break;
+				case 'products':
+					$this->render_products_tab();
+					break;
+				case 'categories':
+					$this->render_category_settings();
+					$this->render_category_section_template();
+					break;
+				case 'customer':
+					$this->render_customer_information();
+					break;
+				default:
+					$this->render_customer_service_index();
+			}
+			$this->render_shell_end();
+			return;
+		}
+
+		$this->render_customer_service_index();
+		$this->render_shell_end();
+	}
+
+	private function render_customer_service_index(): void {
+		$base = admin_url( 'admin.php?page=shop-application-webservices&service=customers&module=' );
+		?>
+		<div class="shop-service-section">
+			<div class="shop-service-section-heading"><h2>وب‌سرویس‌های عمومی</h2><p>بدون ورود یا حساب کاربری قابل استفاده‌اند و اطلاعات عمومی فروشگاه را در اختیار اپلیکیشن قرار می‌دهند.</p></div>
+			<div class="shop-service-grid shop-service-grid-three">
+				<?php $this->render_service_card( 'dashicons-admin-home', 'خانه', 'ساختار و محتوای صفحه خانه اپلیکیشن؛ شامل تصویر، محصولات، دسته‌بندی، برند و نوشته‌ها.', $base . 'home' ); ?>
+				<?php $this->render_service_card( 'dashicons-products', 'محصولات', 'فهرست محصولات، جست‌وجو، فیلترها و API جزئیات محصول.', $base . 'products' ); ?>
+				<?php $this->render_service_card( 'dashicons-category', 'دسته‌بندی‌ها', 'صفحه دسته‌بندی‌ها و API جزئیات هر دسته‌بندی همراه محصولات و برندهای مرتبط.', $base . 'categories' ); ?>
+			</div>
+		</div>
+		<div class="shop-service-section">
+			<div class="shop-service-section-heading"><h2>وب‌سرویس‌های حساب کاربری</h2><p>فقط پس از احراز هویت و ارسال توکن معتبر قابل استفاده‌اند.</p></div>
+			<div class="shop-service-grid shop-service-grid-three">
+				<?php $this->render_service_card( 'dashicons-admin-users', 'مشتری', 'اطلاعات حساب مشتری شامل مشخصات فردی، آدرس‌ها، سفارش‌ها، سبد خرید، علاقه‌مندی‌ها و دانلودهای ووکامرس.', $base . 'customer' ); ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	private function render_service_card( string $icon, string $title, string $description, string $url ): void {
+		?>
+		<a class="shop-service-card" href="<?php echo esc_url( $url ); ?>">
+			<span class="dashicons <?php echo esc_attr( $icon ); ?> shop-service-icon" aria-hidden="true"></span>
+			<div class="shop-service-card-copy"><h3><?php echo esc_html( $title ); ?></h3><p><?php echo esc_html( $description ); ?></p></div>
+			<span class="dashicons dashicons-arrow-left-alt2 shop-service-arrow" aria-hidden="true"></span>
+		</a>
+		<?php
+	}
+
+	private function render_back_link( string $url, string $label ): void {
+		?><div class="shop-application-back"><a href="<?php echo esc_url( $url ); ?>"><span class="dashicons dashicons-arrow-right-alt"></span><?php echo esc_html( $label ); ?></a></div><?php
+	}
+
+	private function render_placeholder_service( string $title, string $description ): void {
+		$this->render_shell_start( $title, $description );
+		$this->render_back_link( admin_url( 'admin.php?page=shop-application-webservices' ), 'بازگشت به وب‌سرویس‌ها' );
+		?><div class="app-api-empty-state"><span class="dashicons dashicons-admin-tools"></span><h2>در حال توسعه</h2><p><?php echo esc_html( $description ); ?></p></div><?php
+		$this->render_shell_end();
+	}
+
+	public function render_plugin_settings(): void {
+		$this->render_shell_start( 'تنظیمات', 'تنظیمات عمومی افزونه در نسخه‌های بعدی در این صفحه قرار می‌گیرد.' );
+		?><div class="app-api-empty-state"><span class="dashicons dashicons-admin-settings"></span><h2>تنظیمات عمومی</h2><p>در حال حاضر تنظیمات هر وب‌سرویس در همان بخش وب‌سرویس مدیریت می‌شود.</p></div><?php
+		$this->render_shell_end();
+	}
+
+	public function render_tools(): void {
+		$this->render_shell_start( 'ابزارها', 'ابزارهای نگهداری، بررسی و عیب‌یابی افزونه.' );
+		?><div class="app-api-empty-state"><span class="dashicons dashicons-admin-tools"></span><h2>ابزارها</h2><p>ابزارهای توسعه و عیب‌یابی در نسخه‌های بعدی اینجا اضافه می‌شوند.</p></div><?php
+		$this->render_shell_end();
+	}
+
+	private function render_home_settings(): void {
 		$config = Config::home_configuration();
 		?>
-		<div class="wrap app-api-admin-wrap" dir="rtl">
-			<div class="app-api-header">
-				<div>
-					<h1>Application API</h1>
-					<p>صفحه‌ساز بصری API اپلیکیشن</p>
-				</div>
+		<form method="post" action="options.php" id="app-api-settings-form">
+			<?php settings_fields( 'app_api_settings' ); ?>
+			<?php $this->render_endpoint_settings( 'خانه', Config::OPTION_HOME_ENDPOINT, Config::home_endpoint(), '' ); ?>
+			<?php $this->render_home_order( $config ); ?>
+
+			<div class="app-api-section-heading"><div><h2>تنظیمات بخش‌های صفحه خانه</h2></div></div>
+			<div class="app-api-section-cards" id="app-api-section-cards">
+				<?php foreach ( $config['order'] as $key ) : ?>
+					<?php if ( isset( $config['sections'][ $key ] ) ) : $this->render_section_card( $key, $config['sections'][ $key ] ); endif; ?>
+				<?php endforeach; ?>
 			</div>
+			<div class="app-api-save-bar"><span>ترتیب بخش‌های فعال، دقیقاً ترتیب آرایه <code>sections</code> در API خانه خواهد بود.</span><?php submit_button( 'ذخیره تنظیمات', 'primary', 'submit', false ); ?></div>
+		</form>
+		<?php
+		$this->render_section_template();
+	}
 
-			<?php settings_errors( 'application-api' ); ?>
-
-			<nav class="app-api-tabs" aria-label="صفحات API">
-				<button type="button" class="app-api-tab is-active" data-tab="home">خانه</button>
-				<button type="button" class="app-api-tab" data-tab="products">محصولات</button>
-				<button type="button" class="app-api-tab" data-tab="categories">دسته‌بندی‌ها</button>
-				<button type="button" class="app-api-tab" data-tab="auth">احراز هویت</button>
-			</nav>
-
-			<section class="app-api-tab-panel is-active" data-panel="home">
-				<form method="post" action="options.php" id="app-api-settings-form">
-					<?php settings_fields( 'app_api_settings' ); ?>
-					<?php $this->render_endpoint_settings( 'خانه', Config::OPTION_HOME_ENDPOINT, Config::home_endpoint(), '' ); ?>
-					<?php $this->render_home_order( $config ); ?>
-
-					<div class="app-api-section-heading">
-						<div><h2>تنظیمات بخش‌های صفحه خانه</h2></div>
-					</div>
-
-					<div class="app-api-section-cards" id="app-api-section-cards">
-						<?php foreach ( $config['order'] as $key ) : ?>
-							<?php if ( isset( $config['sections'][ $key ] ) ) : ?>
-								<?php $this->render_section_card( $key, $config['sections'][ $key ] ); ?>
-							<?php endif; ?>
-						<?php endforeach; ?>
-					</div>
-
-					<div class="app-api-save-bar">
-						<span>ترتیب بخش‌های فعال، دقیقاً ترتیب آرایه <code>sections</code> در API خانه خواهد بود.</span>
-						<?php submit_button( 'ذخیره تنظیمات', 'primary', 'submit', false ); ?>
-					</div>
-				</form>
-			</section>
-
-			<section class="app-api-tab-panel" data-panel="products">
-				<?php $this->render_products_tab(); ?>
-			</section>
-
-			<section class="app-api-tab-panel" data-panel="categories">
-				<?php $this->render_category_settings(); ?>
-			</section>
-			<section class="app-api-tab-panel" data-panel="auth">
-				<?php $this->render_auth_information(); ?>
-			</section>
+	private function render_customer_information(): void {
+		$url = rest_url( Config::REST_NAMESPACE . '/customers/{id}' );
+		?>
+		<div class="app-api-products-info">
+			<div class="app-api-card app-api-products-intro">
+				<div class="app-api-card-title"><div><h2>API مشتری</h2><p>اطلاعات حساب مشتری با شناسه کاربر دریافت می‌شود. این API نیازمند توکن معتبر همان مشتری است؛ مدیر سایت نیز می‌تواند اطلاعات هر مشتری را دریافت کند.</p></div></div>
+				<div class="app-api-endpoint-list"><label><span>API مشتری</span><input type="text" dir="ltr" value="<?php echo esc_attr( $url ); ?>" readonly></label></div>
+			</div>
+			<div class="app-api-info-grid">
+				<div class="app-api-card app-api-info-card"><h3>احراز هویت</h3><p>توکن دریافتی از API ورود یا ثبت‌نام باید در هدر درخواست ارسال شود.</p><code dir="ltr">Authorization: Bearer [USER_ID]TOKEN</code></div>
+				<div class="app-api-card app-api-info-card"><h3>اطلاعات خروجی</h3><ul class="app-api-bullet-list"><li>مشخصات فردی، نام کاربری، ایمیل، شماره تماس و آواتار</li><li>آدرس صورتحساب و آدرس ارسال ووکامرس</li><li>لیست سفارش‌ها و اقلام هر سفارش</li><li>سبد خرید ماندگار ووکامرس</li><li>لیست علاقه‌مندی‌ها از طریق اتصال افزونه Wishlist</li><li>دانلودهای قابل دسترس مشتری</li></ul></div>
+			</div>
+			<div class="app-api-card app-api-request-example"><h3>نمونه درخواست</h3><code dir="ltr">GET <?php echo esc_html( str_replace( '{id}', '123', $url ) ); ?></code><pre dir="ltr" class="app-api-code-block">Authorization: Bearer [123]xxxxxxxx...</pre></div>
+			<div class="app-api-card app-api-info-card app-api-security-note"><h3>نکته امنیتی</h3><p>کاربر عادی فقط می‌تواند اطلاعات شناسه خودش را دریافت کند. دسترسی به مشتری دیگر با خطای 403 رد می‌شود. مدیران سایت و مدیران ووکامرس می‌توانند برای مدیریت، شناسه مشتری دیگری را نیز درخواست کنند.</p></div>
 		</div>
-		<?php $this->render_section_template(); ?>
-		<?php $this->render_category_section_template(); ?>
 		<?php
 	}
 
@@ -575,7 +751,7 @@ final class SettingsPage {
 				<div class="app-api-card app-api-info-card">
 					<h3>ورود و توکن دسترسی</h3>
 					<ul class="app-api-bullet-list">
-						<li>پس از ورود یا ثبت‌نام موفق، API یک <code>access_token</code> برمی‌گرداند که با شناسه کاربر در براکت شروع می‌شود؛ برای مثال <code>[123]...</code>.</li>
+						<li>پس از ورود یا ثبت‌نام موفق، API یک <code>token</code> برمی‌گرداند که با شناسه کاربر در براکت شروع می‌شود؛ برای مثال <code>[123]...</code>.</li>
 						<li>توکن به‌صورت خام در دیتابیس ذخیره نمی‌شود؛ فقط هش آن در حساب کاربر نگهداری می‌شود.</li>
 						<li>اعتبار توکن به‌صورت داخلی مدیریت می‌شود و اطلاعات انقضا در پاسخ عمومی ورود و ثبت‌نام نمایش داده نمی‌شود.</li>
 						<li>در درخواست‌های محافظت‌شده آینده، توکن باید در هدر <code>Authorization: Bearer TOKEN</code> ارسال شود.</li>
@@ -609,8 +785,8 @@ final class SettingsPage {
     "id": 123,
     "username": "user-a1b2c3d4",
     "email": "user@example.com",
-    "mobile": "",
-    "access_token": "[123]a1b2c3d4..."
+    "phone": "",
+    "token": "[123]a1b2c3d4..."
   }
 }</pre>
 			</div>

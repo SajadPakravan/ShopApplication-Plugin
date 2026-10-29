@@ -1,64 +1,36 @@
-# Application API 2.7.1
+# Shop Application API 3.0.0
 
-## Endpoints
+REST namespace remains:
 
-- Home: `/wp-json/app-api/v1/home` (endpoint name may be changed in settings)
-- Products: `/wp-json/app-api/v1/products`
-- Product detail: `/wp-json/app-api/v1/products/{id}`
-- Categories page: `/wp-json/app-api/v1/categories`
-- Category detail: `/wp-json/app-api/v1/categories/{id}`
-- Login: `POST /wp-json/app-api/v1/auth/login`
-- Registration: `POST /wp-json/app-api/v1/auth/register`
-
-## Category detail
-
-`/categories/{id}` has a fixed semantic structure. After the category information, the API returns direct child categories, then the product list, then the brand list.
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 55,
-    "name": "...",
-    "description": "...",
-    "image": "...",
-    "count": 12,
-    "parents": [],
-    "children": [],
-    "products": [
-      {
-        "data": [],
-        "view_all": {}
-      }
-    ],
-    "brands": [
-      {
-        "data": [],
-        "view_all": {}
-      }
-    ]
-  }
-}
+```text
+/wp-json/app-api/v1
 ```
 
-`children` contains only direct child categories. Each child follows the common category item contract and therefore contains `id`, `name`, `count`, `image`, and `children: []`.
+## Public customer web services
 
-The `products` list uses the same product-card formatter as the product list, Home product sections, and related products. The `brands` list uses the same brand item contract as Home brand sections: `id`, `name`, `count`, and `image`. Brand `count` is scoped to products belonging to the selected category.
+- `GET /home` (or the configured Home endpoint)
+- `GET /products`
+- `GET /products/{id}`
+- `GET /categories`
+- `GET /categories/{id}`
 
-The administrator can enable/disable the product and brand blocks independently, set how many items each block initially returns, and enable/disable its `view_all` button. Their order is fixed: products first, brands second. No row/column/direction settings are used on category detail.
+These endpoints do not require authentication.
 
-## Product detail
+## Authentication web service
 
-The product-detail response keeps its fixed semantic order after `variations`: reviews first and related products second. The output-layout controls (direction, rows, columns) were removed from the product-detail administration settings because these blocks are fixed API data blocks rather than page-builder sections.
+### Login
 
-## Categories page
+```text
+POST /auth/login
+```
 
-The `/categories` landing page remains configurable with `image`, `products`, and `category` sections. Category items always contain a `children` array. Custom category sections may optionally include descendants; otherwise `children` is `[]`.
+### Register
 
+```text
+POST /auth/register
+```
 
-## Authentication
-
-Both authentication endpoints accept the same two request fields:
+Body:
 
 ```json
 {
@@ -67,12 +39,46 @@ Both authentication endpoints accept the same two request fields:
 }
 ```
 
-`identifier` may be a WordPress username, a valid email address, or an Iranian mobile number in the `09xxxxxxxxx` form. Persian and Arabic digits are normalized before mobile detection.
+`identifier` can be a username, valid email address, or Iranian mobile number in `09xxxxxxxxx` form.
 
-Successful login and registration responses contain `id`, `username`, `email`, `mobile`, and `access_token` directly inside `data`. The public response does not expose token type or expiration fields. Internally, tokens still expire and only a keyed hash is stored in user meta. Tokens use the form `[user_id]<random-secret>`. Future protected Application API routes can authenticate the user with:
+Successful login/registration response:
 
-```text
-Authorization: Bearer <access_token>
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "username": "user-a1b2c3d4",
+    "email": "user@example.com",
+    "phone": "09121234567",
+    "token": "[123]xxxxxxxx..."
+  }
+}
 ```
 
-For registration, an email or mobile identifier receives an automatically generated unique username in the form `user-xxxxxxxx`, where the last eight characters contain lowercase English letters and digits. A username identifier is stored as the chosen username and must contain at least four characters. Mobile registration stores the normalized mobile in both `app_api_mobile` and WooCommerce `billing_phone` user meta.
+Use protected APIs with:
+
+```text
+Authorization: Bearer [123]xxxxxxxx...
+```
+
+## Account customer web service
+
+```text
+GET /customers/{id}
+```
+
+Requires a Bearer token. A normal customer may only request their own ID. WordPress/WooCommerce administrators may request other customer IDs.
+
+The response includes:
+
+- account identity and profile fields
+- phone and avatar
+- WooCommerce billing address
+- WooCommerce shipping address
+- orders and order items
+- persistent WooCommerce cart
+- wishlist array
+- available downloads
+
+WooCommerce core does not include a native wishlist. The `wishlist` array is exposed through the `shop_application_customer_wishlist` filter so the active wishlist plugin/theme can be connected without changing the public API contract.

@@ -7,6 +7,8 @@ defined( 'ABSPATH' ) || exit;
 final class Response {
 	public static function success( array $data, int $status = 200 ): \WP_REST_Response {
 		$response = new \WP_REST_Response( $data, $status );
+		$response->header( 'X-Shop-Application-Version', APP_API_VERSION );
+		// Legacy header kept for clients that used versions before the Shop Application rename.
 		$response->header( 'X-Application-API-Version', APP_API_VERSION );
 		return $response;
 	}

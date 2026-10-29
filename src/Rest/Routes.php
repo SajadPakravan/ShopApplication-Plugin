@@ -7,6 +7,7 @@ use AppAPI\Controllers\HomeController;
 use AppAPI\Controllers\ProductController;
 use AppAPI\Controllers\CategoryController;
 use AppAPI\Controllers\AuthController;
+use AppAPI\Controllers\CustomerController;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -16,6 +17,7 @@ final class Routes {
 		$home_controller     = new HomeController();
 		$category_controller = new CategoryController();
 		$auth_controller     = new AuthController();
+		$customer_controller = new CustomerController();
 
 		register_rest_route(
 			Config::REST_NAMESPACE,
@@ -93,6 +95,24 @@ final class Routes {
 				'callback'            => array( $auth_controller, 'register' ),
 				'permission_callback' => '__return_true',
 				'args'                => $this->auth_args(),
+			)
+		);
+
+
+		register_rest_route(
+			Config::REST_NAMESPACE,
+			'/customers/(?P<id>\d+)',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( $customer_controller, 'show' ),
+				'permission_callback' => array( $customer_controller, 'permissions_check' ),
+				'args'                => array(
+					'id' => array(
+						'type'              => 'integer',
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+				),
 			)
 		);
 
