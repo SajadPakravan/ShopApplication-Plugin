@@ -8,6 +8,7 @@ final class Config {
 	public const REST_NAMESPACE             = 'app-api/v1';
 	public const DEFAULT_PER_PAGE           = 20;
 	public const MAX_PER_PAGE               = 100;
+	public const AUTH_TOKEN_TTL              = 2592000; // 30 days.
 	public const DEFAULT_HOME_CACHE         = 60;
 	public const OPTION_HOME_SECTIONS       = 'app_api_home_sections_json';
 	public const OPTION_HOME_CONFIG         = 'app_api_home_configuration';

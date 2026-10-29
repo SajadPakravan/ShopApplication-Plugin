@@ -6,6 +6,7 @@ use AppAPI\Config;
 use AppAPI\Controllers\HomeController;
 use AppAPI\Controllers\ProductController;
 use AppAPI\Controllers\CategoryController;
+use AppAPI\Controllers\AuthController;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -14,6 +15,7 @@ final class Routes {
 		$product_controller  = new ProductController();
 		$home_controller     = new HomeController();
 		$category_controller = new CategoryController();
+		$auth_controller     = new AuthController();
 
 		register_rest_route(
 			Config::REST_NAMESPACE,
@@ -74,12 +76,47 @@ final class Routes {
 
 		register_rest_route(
 			Config::REST_NAMESPACE,
+			'/auth/login',
+			array(
+				'methods'             => \WP_REST_Server::CREATABLE,
+				'callback'            => array( $auth_controller, 'login' ),
+				'permission_callback' => '__return_true',
+				'args'                => $this->auth_args(),
+			)
+		);
+
+		register_rest_route(
+			Config::REST_NAMESPACE,
+			'/auth/register',
+			array(
+				'methods'             => \WP_REST_Server::CREATABLE,
+				'callback'            => array( $auth_controller, 'register' ),
+				'permission_callback' => '__return_true',
+				'args'                => $this->auth_args(),
+			)
+		);
+
+		register_rest_route(
+			Config::REST_NAMESPACE,
 			'/' . Config::home_endpoint(),
 			array(
 				'methods'             => \WP_REST_Server::READABLE,
 				'callback'            => array( $home_controller, 'index' ),
 				'permission_callback' => '__return_true',
 			)
+		);
+	}
+
+	private function auth_args(): array {
+		return array(
+			'identifier' => array(
+				'type'     => 'string',
+				'required' => true,
+			),
+			'password' => array(
+				'type'     => 'string',
+				'required' => true,
+			),
 		);
 	}
 

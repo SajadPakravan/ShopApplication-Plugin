@@ -1,4 +1,4 @@
-# Application API 2.6.4
+# Application API 2.7.0
 
 ## Endpoints
 
@@ -7,6 +7,8 @@
 - Product detail: `/wp-json/app-api/v1/products/{id}`
 - Categories page: `/wp-json/app-api/v1/categories`
 - Category detail: `/wp-json/app-api/v1/categories/{id}`
+- Login: `POST /wp-json/app-api/v1/auth/login`
+- Registration: `POST /wp-json/app-api/v1/auth/register`
 
 ## Category detail
 
@@ -52,3 +54,25 @@ The product-detail response keeps its fixed semantic order after `variations`: r
 ## Categories page
 
 The `/categories` landing page remains configurable with `image`, `products`, and `category` sections. Category items always contain a `children` array. Custom category sections may optionally include descendants; otherwise `children` is `[]`.
+
+
+## Authentication
+
+Both authentication endpoints accept the same two request fields:
+
+```json
+{
+  "identifier": "09121234567",
+  "password": "example-password"
+}
+```
+
+`identifier` may be a WordPress username, a valid email address, or an Iranian mobile number in the `09xxxxxxxxx` form. Persian and Arabic digits are normalized before mobile detection.
+
+Successful login and registration responses contain the current user summary and an opaque Bearer access token. The token is valid for 30 days by default and only its keyed hash is stored in user meta. Future protected Application API routes can authenticate the user with:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+For registration, an email or mobile identifier receives an automatically generated unique username in the form `user-xxxxxxxx`, where the last eight characters contain lowercase English letters and digits. A username identifier is stored as the chosen username. Mobile registration stores the normalized mobile in both `app_api_mobile` and WooCommerce `billing_phone` user meta.

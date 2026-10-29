@@ -465,7 +465,7 @@ final class SettingsPage {
 				<button type="button" class="app-api-tab is-active" data-tab="home">خانه</button>
 				<button type="button" class="app-api-tab" data-tab="products">محصولات</button>
 				<button type="button" class="app-api-tab" data-tab="categories">دسته‌بندی‌ها</button>
-				<button type="button" class="app-api-tab" data-tab="account">حساب کاربری</button>
+				<button type="button" class="app-api-tab" data-tab="auth">احراز هویت</button>
 			</nav>
 
 			<section class="app-api-tab-panel is-active" data-panel="home">
@@ -500,8 +500,8 @@ final class SettingsPage {
 			<section class="app-api-tab-panel" data-panel="categories">
 				<?php $this->render_category_settings(); ?>
 			</section>
-			<section class="app-api-tab-panel" data-panel="account">
-				<div class="app-api-empty-state"><span class="dashicons dashicons-admin-tools"></span><h2>تنظیمات API حساب کاربری</h2><p>پس از ایجاد این API، تنظیمات اختصاصی آن در همین تب قرار می‌گیرد.</p></div>
+			<section class="app-api-tab-panel" data-panel="auth">
+				<?php $this->render_auth_information(); ?>
 			</section>
 		</div>
 		<?php $this->render_section_template(); ?>
@@ -520,6 +520,116 @@ final class SettingsPage {
 			<div class="app-api-field-grid two-columns">
 				<label><span>نام endpoint</span><input type="text" dir="ltr" class="app-api-endpoint-slug" data-endpoint-suffix="<?php echo esc_attr( $suffix ); ?>" name="<?php echo esc_attr( $option_name ); ?>" value="<?php echo esc_attr( $endpoint ); ?>"></label>
 				<label><span>آدرس کامل API</span><input type="text" dir="ltr" class="app-api-endpoint-url" data-endpoint-base="<?php echo esc_attr( $base_url ); ?>" value="<?php echo esc_attr( $full_url ); ?>" readonly></label>
+			</div>
+		</div>
+		<?php
+	}
+
+
+	private function render_auth_information(): void {
+		$login_url    = rest_url( Config::REST_NAMESPACE . '/auth/login' );
+		$register_url = rest_url( Config::REST_NAMESPACE . '/auth/register' );
+		?>
+		<div class="app-api-products-info app-api-auth-info">
+			<div class="app-api-card app-api-products-intro">
+				<div class="app-api-card-title"><div><h2>API احراز هویت</h2><p>ورود و ثبت‌نام با یک فیلد «شناسه کاربر» انجام می‌شود. کاربر می‌تواند نام کاربری، ایمیل یا شماره همراه خود را در همان فیلد وارد کند.</p></div></div>
+				<div class="app-api-endpoint-list">
+					<label><span>API ورود</span><input type="text" dir="ltr" value="<?php echo esc_attr( $login_url ); ?>" readonly></label>
+					<label><span>API ثبت‌نام</span><input type="text" dir="ltr" value="<?php echo esc_attr( $register_url ); ?>" readonly></label>
+				</div>
+			</div>
+
+			<div class="app-api-info-grid">
+				<div class="app-api-card app-api-info-card">
+					<h3>پارامترهای درخواست</h3>
+					<p>هر دو API با متد <code>POST</code> کار می‌کنند و فقط دو پارامتر اصلی دریافت می‌کنند.</p>
+					<ul class="app-api-param-list">
+						<li><code>identifier</code><span>نام کاربری، ایمیل یا شماره همراه کاربر</span></li>
+						<li><code>password</code><span>رمز عبور کاربر؛ در ثبت‌نام حداقل ۸ کاراکتر</span></li>
+					</ul>
+				</div>
+
+				<div class="app-api-card app-api-info-card">
+					<h3>تشخیص نوع شناسه</h3>
+					<ul class="app-api-bullet-list">
+						<li>اگر مقدار یک شماره ۱۱ رقمی با <code>09</code> باشد، به‌عنوان شماره همراه تشخیص داده می‌شود.</li>
+						<li>ارقام فارسی و عربی شماره همراه به‌صورت خودکار به ارقام انگلیسی تبدیل می‌شوند.</li>
+						<li>اگر مقدار دارای ساختار معتبر ایمیل باشد، ورود یا ثبت‌نام با ایمیل انجام می‌شود.</li>
+						<li>در سایر موارد مقدار به‌عنوان نام کاربری در نظر گرفته می‌شود.</li>
+					</ul>
+				</div>
+			</div>
+
+			<div class="app-api-info-grid">
+				<div class="app-api-card app-api-info-card">
+					<h3>قواعد ثبت‌نام</h3>
+					<ul class="app-api-bullet-list">
+						<li>ایمیل، شماره همراه یا نام کاربری واردشده قبل از ایجاد حساب از نظر تکراری‌بودن بررسی می‌شود.</li>
+						<li>اگر کاربر با ایمیل ثبت‌نام کند، ایمیل در حساب ذخیره می‌شود و نام کاربری یکتا به‌صورت خودکار ساخته می‌شود.</li>
+						<li>اگر کاربر با شماره همراه ثبت‌نام کند، شماره در اطلاعات حساب و شماره صورتحساب ووکامرس ذخیره می‌شود.</li>
+						<li>نام کاربری خودکار با قالب <code>user-xxxxxxxx</code> ساخته می‌شود؛ هشت کاراکتر پایانی ترکیبی تصادفی و یکتا از حروف انگلیسی کوچک و اعداد است.</li>
+						<li>اگر خود کاربر نام کاربری وارد کند، همان نام کاربری برای حساب استفاده می‌شود.</li>
+					</ul>
+				</div>
+
+				<div class="app-api-card app-api-info-card">
+					<h3>ورود و توکن دسترسی</h3>
+					<ul class="app-api-bullet-list">
+						<li>پس از ورود یا ثبت‌نام موفق، API یک <code>access_token</code> از نوع <code>Bearer</code> برمی‌گرداند.</li>
+						<li>توکن به‌صورت خام در دیتابیس ذخیره نمی‌شود؛ فقط هش آن در حساب کاربر نگهداری می‌شود.</li>
+						<li>اعتبار پیش‌فرض هر توکن ۳۰ روز است.</li>
+						<li>در درخواست‌های محافظت‌شده آینده، توکن باید در هدر <code>Authorization: Bearer TOKEN</code> ارسال شود.</li>
+					</ul>
+				</div>
+			</div>
+
+			<div class="app-api-card app-api-request-example">
+				<h3>نمونه درخواست ورود</h3>
+				<code dir="ltr">POST <?php echo esc_html( $login_url ); ?></code>
+				<pre dir="ltr" class="app-api-code-block">{
+  "identifier": "09121234567",
+  "password": "example-password"
+}</pre>
+			</div>
+
+			<div class="app-api-card app-api-request-example">
+				<h3>نمونه درخواست ثبت‌نام</h3>
+				<code dir="ltr">POST <?php echo esc_html( $register_url ); ?></code>
+				<pre dir="ltr" class="app-api-code-block">{
+  "identifier": "user@example.com",
+  "password": "example-password"
+}</pre>
+			</div>
+
+			<div class="app-api-card app-api-request-example">
+				<h3>نمونه پاسخ موفق</h3>
+				<pre dir="ltr" class="app-api-code-block">{
+  "success": true,
+  "data": {
+    "user": {
+      "id": 123,
+      "username": "user-a1b2c3d4",
+      "email": "user@example.com",
+      "mobile": ""
+    },
+    "auth": {
+      "access_token": "app1.123....",
+      "token_type": "Bearer",
+      "expires_in": 2592000,
+      "expires_at": "..."
+    }
+  }
+}</pre>
+			</div>
+
+			<div class="app-api-card app-api-info-card app-api-security-note">
+				<h3>نکات امنیتی</h3>
+				<ul class="app-api-bullet-list">
+					<li>برای ارسال شناسه، رمز عبور و توکن همیشه از HTTPS استفاده شود.</li>
+					<li>رمز عبور نباید در اپلیکیشن یا لاگ‌های برنامه ذخیره شود.</li>
+					<li>برای ورود ناموفق پیام عمومی برگردانده می‌شود تا مشخص نشود حساب موردنظر در سایت وجود دارد یا خیر.</li>
+					<li>در ثبت‌نام، برای مقدار تکراری پیام مشخص متناسب با ایمیل، شماره همراه یا نام کاربری برگردانده می‌شود.</li>
+				</ul>
 			</div>
 		</div>
 		<?php

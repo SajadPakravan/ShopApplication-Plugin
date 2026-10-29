@@ -5,6 +5,7 @@ namespace AppAPI;
 use AppAPI\Admin\SettingsPage;
 use AppAPI\Rest\Routes;
 use AppAPI\Support\Cache;
+use AppAPI\Support\AuthToken;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -29,6 +30,8 @@ final class Plugin {
 
 		$this->booted = true;
 
+
+		add_filter( 'determine_current_user', array( AuthToken::class, 'determine_current_user' ), 20 );
 
 		add_action( 'rest_api_init', array( new Routes(), 'register' ) );
 
