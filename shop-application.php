@@ -3,7 +3,7 @@
  * Plugin Name: اپلیکیشن فروشگاه
  * Plugin URI: https://yademansystem.ir
  * Description: زیرساخت وب‌سرویس و مدیریت اپلیکیشن فروشگاه برای وردپرس و ووکامرس.
- * Version: 3.0.0
+ * Version: 3.0.1
  * Author: Sajad Pakravan
  * Author URI: https://yademansystem.ir
  * License: GPL-2.0-or-later
@@ -23,9 +23,17 @@ register_activation_hook(
 		if ( ! function_exists( 'deactivate_plugins' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
-		$legacy = 'application-api/application_api.php';
-		if ( function_exists( 'is_plugin_active' ) && is_plugin_active( $legacy ) ) {
-			deactivate_plugins( $legacy, true );
+		$legacy_plugins = array(
+			'application-api/application_api.php',
+			'shop_application/shop_application.php',
+		);
+
+		if ( function_exists( 'is_plugin_active' ) ) {
+			foreach ( $legacy_plugins as $legacy ) {
+				if ( is_plugin_active( $legacy ) ) {
+					deactivate_plugins( $legacy, true );
+				}
+			}
 		}
 	}
 );
@@ -36,7 +44,7 @@ if ( defined( 'APP_API_VERSION' ) ) {
 	return;
 }
 
-define( 'APP_API_VERSION', '3.0.0' );
+define( 'APP_API_VERSION', '3.0.1' );
 define( 'APP_API_FILE', __FILE__ );
 define( 'APP_API_PATH', plugin_dir_path( __FILE__ ) );
 define( 'APP_API_URL', plugin_dir_url( __FILE__ ) );
