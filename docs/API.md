@@ -1,4 +1,4 @@
-# Application API 2.7.0
+# Application API 2.7.1
 
 ## Endpoints
 
@@ -69,10 +69,10 @@ Both authentication endpoints accept the same two request fields:
 
 `identifier` may be a WordPress username, a valid email address, or an Iranian mobile number in the `09xxxxxxxxx` form. Persian and Arabic digits are normalized before mobile detection.
 
-Successful login and registration responses contain the current user summary and an opaque Bearer access token. The token is valid for 30 days by default and only its keyed hash is stored in user meta. Future protected Application API routes can authenticate the user with:
+Successful login and registration responses contain `id`, `username`, `email`, `mobile`, and `access_token` directly inside `data`. The public response does not expose token type or expiration fields. Internally, tokens still expire and only a keyed hash is stored in user meta. Tokens use the form `[user_id]<random-secret>`. Future protected Application API routes can authenticate the user with:
 
 ```text
 Authorization: Bearer <access_token>
 ```
 
-For registration, an email or mobile identifier receives an automatically generated unique username in the form `user-xxxxxxxx`, where the last eight characters contain lowercase English letters and digits. A username identifier is stored as the chosen username. Mobile registration stores the normalized mobile in both `app_api_mobile` and WooCommerce `billing_phone` user meta.
+For registration, an email or mobile identifier receives an automatically generated unique username in the form `user-xxxxxxxx`, where the last eight characters contain lowercase English letters and digits. A username identifier is stored as the chosen username and must contain at least four characters. Mobile registration stores the normalized mobile in both `app_api_mobile` and WooCommerce `billing_phone` user meta.

@@ -40,6 +40,14 @@ final class AuthService {
 			);
 		}
 
+		if ( 'username' === $identity['type'] && $this->text_length( $identity['value'] ) < 4 ) {
+			return new \WP_Error(
+				'app_api_auth_username_too_short',
+				'نام کاربری باید حداقل ۴ کاراکتر داشته باشد.',
+				array( 'status' => 400 )
+			);
+		}
+
 		$duplicate = $this->duplicate_error( $identity['type'], $identity['value'] );
 		if ( $duplicate ) {
 			return $duplicate;
@@ -235,17 +243,15 @@ final class AuthService {
 	}
 
 	private function auth_payload( \WP_User $user ): array {
-		$token = AuthToken::issue( (int) $user->ID );
-		$mobile = $this->user_mobile( (int) $user->ID );
+		$token_data = AuthToken::issue( (int) $user->ID );
+		$mobile     = $this->user_mobile( (int) $user->ID );
 
 		return array(
-			'user' => array(
-				'id'       => (int) $user->ID,
-				'username' => (string) $user->user_login,
-				'email'    => (string) $user->user_email,
-				'mobile'   => $mobile,
-			),
-			'auth' => $token,
+			'id'           => (int) $user->ID,
+			'username'     => (string) $user->user_login,
+			'email'        => (string) $user->user_email,
+			'mobile'       => $mobile,
+			'access_token' => (string) ( $token_data['access_token'] ?? '' ),
 		);
 	}
 
@@ -312,6 +318,10 @@ final class AuthService {
 				'٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
 			)
 		);
+	}
+
+	private function text_length( string $value ): int {
+		return function_exists( 'mb_strlen' ) ? mb_strlen( $value, 'UTF-8' ) : strlen( $value );
 	}
 
 	private function invalid_credentials(): \WP_Error {

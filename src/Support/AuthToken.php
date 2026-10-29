@@ -14,7 +14,6 @@ defined( 'ABSPATH' ) || exit;
  */
 final class AuthToken {
 	private const META_KEY = '_app_api_auth_tokens';
-	private const PREFIX   = 'app1';
 	private const MAX_TOKENS_PER_USER = 10;
 
 	public static function issue( int $user_id ): array {
@@ -24,7 +23,7 @@ final class AuthToken {
 		}
 
 		$secret = bin2hex( random_bytes( 32 ) );
-		$token  = self::PREFIX . '.' . $user_id . '.' . $secret;
+		$token  = '[' . $user_id . ']' . $secret;
 		$hash   = self::hash( $token );
 		$now    = time();
 		$expiry = $now + Config::AUTH_TOKEN_TTL;
@@ -51,9 +50,6 @@ final class AuthToken {
 
 		return array(
 			'access_token' => $token,
-			'token_type'   => 'Bearer',
-			'expires_in'   => Config::AUTH_TOKEN_TTL,
-			'expires_at'   => gmdate( 'c', $expiry ),
 		);
 	}
 
@@ -67,12 +63,11 @@ final class AuthToken {
 			return $user_id;
 		}
 
-		$parts = explode( '.', $token, 3 );
-		if ( 3 !== count( $parts ) || self::PREFIX !== $parts[0] || ! ctype_digit( $parts[1] ) || '' === $parts[2] ) {
+		if ( ! preg_match( '/^\[(\d+)\]([a-f0-9]{64})$/', $token, $matches ) ) {
 			return $user_id;
 		}
 
-		$candidate_user_id = absint( $parts[1] );
+		$candidate_user_id = absint( $matches[1] );
 		if ( ! $candidate_user_id ) {
 			return $user_id;
 		}
