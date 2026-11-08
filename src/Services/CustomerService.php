@@ -109,24 +109,21 @@ final class CustomerService {
 				}
 				$product = $item->get_product();
 				$items[] = array(
-					'id'           => (int) $item_id,
-					'product_id'   => (int) $item->get_product_id(),
-					'variation_id' => (int) $item->get_variation_id(),
+					'id'           => (int) $item->get_product_id(),
 					'name'         => (string) $item->get_name(),
 					'quantity'     => (int) $item->get_quantity(),
-					'total'        => $this->money_int( $item->get_total() ),
-					'image'        => $product ? $this->product_image( $product ) : '',
+					'price'        => $this->money_int( $item->get_total() ),
+                    'image'        => $product ? $this->product_image( $product ) : '',
+                    'variation'    => $this->variation_data( $product ),
 				);
 			}
 
 			$date = $order->get_date_created();
 			$result[] = array(
 				'id'             => (int) $order->get_id(),
-				'number'         => (string) $order->get_order_number(),
-				'status'         => (string) $order->get_status(),
+								'status'         => (string) $order->get_status(),
 				'date'           => $date ? $date->date_i18n( 'Y-m-d' ) : '',
-				'currency'       => (string) $order->get_currency(),
-				'total'          => $this->money_int( $order->get_total() ),
+								'total'          => $this->money_int( $order->get_total() ),
 				'payment_method' => (string) $order->get_payment_method_title(),
 				'item_count'     => (int) $order->get_item_count(),
 				'items'          => $items,
@@ -152,15 +149,12 @@ final class CustomerService {
 				continue;
 			}
 			$result[] = array(
-				'key'           => (string) $cart_key,
-				'product_id'    => $product_id,
-				'variation_id'  => $variation_id,
-				'name'          => (string) $product->get_name(),
-				'quantity'      => max( 0, (int) ( $item['quantity'] ?? 0 ) ),
-				'price'         => $this->money_int( $product->get_price() ),
-				'regular_price' => $this->money_int( $product->get_regular_price() ?: $product->get_price() ),
-				'image'         => $this->product_image( $product ),
-				'variation'     => isset( $item['variation'] ) && is_array( $item['variation'] ) ? $item['variation'] : array(),
+				'id'            => $product_id,
+                'name'          => (string) wc_get_product( $product_id )->get_name(),
+                'quantity'      => max( 0, (int) ( $item['quantity'] ?? 0 ) ),
+                'price'         => $this->money_int( $product->get_price() ),
+                'image'         => $this->product_image( $product ),
+                'variation'     => $this->variation_data( $product ),
 			);
 		}
 
@@ -168,12 +162,21 @@ final class CustomerService {
 	}
 
 	private function wishlist( int $user_id ): array {
-		/**
-		 * WooCommerce core has no native wishlist. Wishlist plugins/themes can
-		 * expose their products here without changing this API contract.
-		 */
 		$items = apply_filters( 'shop_application_customer_wishlist', array(), $user_id );
 		return is_array( $items ) ? array_values( $items ) : array();
+	}
+
+	private function variation_data( $product ): array {
+		if ( ! $product instanceof \WC_Product_Variation ) {
+			return array();
+		}
+		$result = array();
+		foreach ( $product->get_attributes() as $key => $value ) {
+			$taxonomy = str_replace( 'attribute_pa_', '', $key );
+			$term = get_term_by( 'slug', $value, $key );
+			$result[ $taxonomy ] = $term && ! is_wp_error( $term ) ? $term->name : $value;
+		}
+		return $result;
 	}
 
 	private function downloads( int $user_id ): array {
