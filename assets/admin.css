@@ -292,3 +292,73 @@
 	.shop-service-card-copy p { max-height:none; }
 	.shop-service-card:hover { transform:none; }
 }
+
+/* Vertical responsive web-service cards (3.1.0) */
+.shop-service-grid,
+.shop-service-grid-three,
+.shop-service-grid-account {
+	display:grid;
+	grid-template-columns:repeat(auto-fit,minmax(235px,1fr));
+	gap:18px;
+	align-items:stretch;
+}
+.shop-service-card {
+	min-height:250px;
+	display:flex;
+	flex-direction:column;
+	align-items:center;
+	justify-content:flex-start;
+	gap:13px;
+	padding:26px 22px 24px;
+	text-align:center;
+	transform-origin:center;
+}
+.shop-service-icon {
+	flex:0 0 auto;
+	width:64px!important;
+	height:64px!important;
+	font-size:31px!important;
+	border-radius:18px;
+}
+.shop-service-card-copy {
+	width:100%;
+	display:flex;
+	flex-direction:column;
+	align-items:center;
+}
+.shop-service-card-copy h3 {
+	margin:2px 0 10px;
+	font-size:18px;
+}
+.shop-service-card-copy p {
+	margin:0;
+	max-width:330px;
+	max-height:5.7em;
+	overflow:hidden;
+	line-height:1.9;
+	transition:max-height .3s ease;
+}
+.shop-service-card:hover {
+	transform:translateY(-6px) scale(1.035);
+	z-index:3;
+}
+.shop-service-card:hover .shop-service-card-copy p { max-height:15em; }
+.shop-service-arrow { display:none; }
+
+@media (max-width: 782px) {
+	.shop-service-grid,
+	.shop-service-grid-three,
+	.shop-service-grid-account { grid-template-columns:1fr; }
+	.shop-service-card {
+		min-height:0;
+		padding:22px 18px;
+		text-align:center;
+	}
+	.shop-service-icon {
+		width:58px!important;
+		height:58px!important;
+		font-size:28px!important;
+	}
+	.shop-service-card-copy p { max-height:none; }
+	.shop-service-card:hover { transform:none; }
+}

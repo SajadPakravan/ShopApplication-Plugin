@@ -103,16 +103,86 @@ final class Routes {
 			Config::REST_NAMESPACE,
 			'/customers/(?P<id>\d+)',
 			array(
-				'methods'             => \WP_REST_Server::READABLE,
-				'callback'            => array( $customer_controller, 'show' ),
-				'permission_callback' => array( $customer_controller, 'permissions_check' ),
-				'args'                => array(
-					'id' => array(
-						'type'              => 'integer',
-						'required'          => true,
-						'sanitize_callback' => 'absint',
-					),
+				array(
+					'methods'             => \WP_REST_Server::READABLE,
+					'callback'            => array( $customer_controller, 'show' ),
+					'permission_callback' => array( $customer_controller, 'permissions_check' ),
 				),
+				array(
+					'methods'             => array( 'PUT', 'PATCH' ),
+					'callback'            => array( $customer_controller, 'update' ),
+					'permission_callback' => array( $customer_controller, 'permissions_check' ),
+				),
+			)
+		);
+
+		// Authenticated customer account collections. The bearer token identifies the customer.
+		register_rest_route(
+			Config::REST_NAMESPACE,
+			'/orders',
+			array(
+				array( 'methods' => \WP_REST_Server::READABLE, 'callback' => array( $customer_controller, 'orders' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+				array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $customer_controller, 'create_order' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+			)
+		);
+		register_rest_route(
+			Config::REST_NAMESPACE,
+			'/orders/(?P<id>\d+)',
+			array(
+				'methods'             => array( 'PUT', 'PATCH' ),
+				'callback'            => array( $customer_controller, 'update_order' ),
+				'permission_callback' => array( $customer_controller, 'account_permissions_check' ),
+				'args'                => array( 'id' => array( 'type' => 'integer', 'required' => true, 'sanitize_callback' => 'absint' ) ),
+			)
+		);
+
+		register_rest_route(
+			Config::REST_NAMESPACE,
+			'/cart',
+			array(
+				array( 'methods' => \WP_REST_Server::READABLE, 'callback' => array( $customer_controller, 'cart' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+				array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $customer_controller, 'add_cart' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+				array( 'methods' => array( 'PUT', 'PATCH' ), 'callback' => array( $customer_controller, 'update_cart' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+				array( 'methods' => \WP_REST_Server::DELETABLE, 'callback' => array( $customer_controller, 'remove_cart' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+			)
+		);
+
+		register_rest_route(
+			Config::REST_NAMESPACE,
+			'/favorites',
+			array(
+				array( 'methods' => \WP_REST_Server::READABLE, 'callback' => array( $customer_controller, 'favorites' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+				array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $customer_controller, 'add_favorite' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+				array( 'methods' => array( 'PUT', 'PATCH' ), 'callback' => array( $customer_controller, 'replace_favorites' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+				array( 'methods' => \WP_REST_Server::DELETABLE, 'callback' => array( $customer_controller, 'remove_favorite' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+			)
+		);
+
+		register_rest_route(
+			Config::REST_NAMESPACE,
+			'/viewed-products',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( $customer_controller, 'viewed_products' ),
+				'permission_callback' => array( $customer_controller, 'account_permissions_check' ),
+			)
+		);
+
+		register_rest_route(
+			Config::REST_NAMESPACE,
+			'/comments',
+			array(
+				array( 'methods' => \WP_REST_Server::READABLE, 'callback' => array( $customer_controller, 'comments' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+				array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $customer_controller, 'add_comment' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+			)
+		);
+		register_rest_route(
+			Config::REST_NAMESPACE,
+			'/comments/(?P<id>\d+)',
+			array(
+				array( 'methods' => array( 'PUT', 'PATCH' ), 'callback' => array( $customer_controller, 'update_comment' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+				array( 'methods' => \WP_REST_Server::DELETABLE, 'callback' => array( $customer_controller, 'delete_comment' ), 'permission_callback' => array( $customer_controller, 'account_permissions_check' ) ),
+				'args' => array( 'id' => array( 'type' => 'integer', 'required' => true, 'sanitize_callback' => 'absint' ) ),
 			)
 		);
 

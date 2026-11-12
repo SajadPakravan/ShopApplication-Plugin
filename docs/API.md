@@ -1,84 +1,62 @@
-# Shop Application API 3.0.0
+# Shop Application REST API
 
-REST namespace remains:
+Namespace: `app-api/v1`
 
-```text
-/wp-json/app-api/v1
-```
+## Public
 
-## Public customer web services
-
-- `GET /home` (or the configured Home endpoint)
+- `GET /home`
 - `GET /products`
 - `GET /products/{id}`
 - `GET /categories`
 - `GET /categories/{id}`
+- `POST /auth/login`
+- `POST /auth/register`
 
-These endpoints do not require authentication.
+## Authenticated customer
 
-## Authentication web service
+Send the access token as:
 
-### Login
-
-```text
-POST /auth/login
+```http
+Authorization: Bearer [USER_ID]TOKEN
 ```
 
-### Register
+### Profile
 
-```text
-POST /auth/register
-```
+- `GET /customers/{id}`
+- `PATCH /customers/{id}`
+- `PUT /customers/{id}`
 
-Body:
+### Orders
 
-```json
-{
-  "identifier": "09121234567",
-  "password": "example-password"
-}
-```
+- `GET /orders`
+- `POST /orders`
+- `PATCH /orders/{id}`
+- `PUT /orders/{id}`
 
-`identifier` can be a username, valid email address, or Iranian mobile number in `09xxxxxxxxx` form.
+### Cart
 
-Successful login/registration response:
+- `GET /cart`
+- `POST /cart`
+- `PATCH /cart`
+- `PUT /cart`
+- `DELETE /cart`
 
-```json
-{
-  "success": true,
-  "data": {
-    "id": 123,
-    "username": "user-a1b2c3d4",
-    "email": "user@example.com",
-    "phone": "09121234567",
-    "token": "[123]xxxxxxxx..."
-  }
-}
-```
+### Favorites
 
-Use protected APIs with:
+- `GET /favorites`
+- `POST /favorites`
+- `PATCH /favorites`
+- `PUT /favorites`
+- `DELETE /favorites`
 
-```text
-Authorization: Bearer [123]xxxxxxxx...
-```
+### Viewed products
 
-## Account customer web service
+- `GET /viewed-products`
 
-```text
-GET /customers/{id}
-```
+### Comments / reviews
 
-Requires a Bearer token. A normal customer may only request their own ID. WordPress/WooCommerce administrators may request other customer IDs.
-
-The response includes:
-
-- account identity and profile fields
-- phone and avatar
-- WooCommerce billing address
-- WooCommerce shipping address
-- orders and order items
-- persistent WooCommerce cart
-- wishlist array
-- available downloads
-
-WooCommerce core does not include a native wishlist. The `wishlist` array is exposed through the `shop_application_customer_wishlist` filter so the active wishlist plugin/theme can be connected without changing the public API contract.
+- `GET /comments`
+- `POST /comments`
+- `PATCH /comments/{id}`
+- `PUT /comments/{id}`
+- `DELETE /comments/{id}`

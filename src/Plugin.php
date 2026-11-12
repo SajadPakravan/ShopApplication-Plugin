@@ -6,6 +6,7 @@ use AppAPI\Admin\SettingsPage;
 use AppAPI\Rest\Routes;
 use AppAPI\Support\Cache;
 use AppAPI\Support\AuthToken;
+use AppAPI\Services\CustomerService;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -40,6 +41,7 @@ final class Plugin {
 		}
 
 		$this->register_cache_invalidation_hooks();
+		add_action( 'template_redirect', array( $this, 'track_frontend_product_view' ), 30 );
 
 		if ( ! $this->woocommerce_available() ) {
 			add_action( 'admin_notices', array( $this, 'woocommerce_notice' ) );
@@ -119,6 +121,17 @@ final class Plugin {
 		}
 
 		Cache::bump_home_version();
+	}
+
+
+	public function track_frontend_product_view(): void {
+		if ( is_admin() || ! get_current_user_id() || ! function_exists( 'is_product' ) || ! is_product() ) {
+			return;
+		}
+		$product_id = get_queried_object_id();
+		if ( $product_id ) {
+			( new CustomerService() )->record_viewed_product( get_current_user_id(), $product_id );
+		}
 	}
 
 	private function register_cache_invalidation_hooks(): void {

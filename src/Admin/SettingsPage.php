@@ -583,6 +583,13 @@ final class SettingsPage {
 				case 'customer':
 					$this->render_customer_information();
 					break;
+				case 'orders':
+				case 'cart':
+				case 'favorites':
+				case 'viewed-products':
+				case 'comments':
+					$this->render_account_collection_information( $module );
+					break;
 				default:
 					$this->render_customer_service_index();
 			}
@@ -607,8 +614,13 @@ final class SettingsPage {
 		</div>
 		<div class="shop-service-section">
 			<div class="shop-service-section-heading"><h2>وب‌سرویس‌های حساب کاربری</h2><p>فقط پس از احراز هویت و ارسال توکن معتبر قابل استفاده‌اند.</p></div>
-			<div class="shop-service-grid shop-service-grid-three">
-				<?php $this->render_service_card( 'dashicons-admin-users', 'مشتری', 'اطلاعات حساب مشتری شامل مشخصات فردی، آدرس‌ها، سفارش‌ها، سبد خرید، علاقه‌مندی‌ها و دانلودهای ووکامرس.', $base . 'customer' ); ?>
+			<div class="shop-service-grid shop-service-grid-account">
+				<?php $this->render_service_card( 'dashicons-admin-users', 'مشخصات مشتری', 'نمایش و ویرایش اطلاعات فردی، اطلاعات تماس، آدرس صورتحساب و آدرس ارسال مشتری؛ همراه تعداد سفارش‌ها، سبد خرید، علاقه‌مندی‌ها، محصولات مشاهده‌شده و نظرات.', $base . 'customer' ); ?>
+				<?php $this->render_service_card( 'dashicons-clipboard', 'سفارشات', 'نمایش سفارش‌های مشتری بر اساس توکن، ایجاد سفارش و ویرایش محدود سفارش‌های قابل ویرایش بدون دسترسی به سفارش کاربران دیگر.', $base . 'orders' ); ?>
+				<?php $this->render_service_card( 'dashicons-cart', 'سبد خرید', 'دریافت سبد خرید آنلاین مشتری، افزودن محصول، تغییر تعداد و حذف محصول با اتصال به سبد ماندگار ووکامرس.', $base . 'cart' ); ?>
+				<?php $this->render_service_card( 'dashicons-heart', 'علاقه‌مندی‌ها', 'نمایش و مدیریت علاقه‌مندی‌های حساب کاربر و همگام‌سازی با سیستم Wishlist فعال فروشگاه، از جمله WoodMart و YITH.', $base . 'favorites' ); ?>
+				<?php $this->render_service_card( 'dashicons-visibility', 'محصولات مشاهده‌شده', 'لیست محصولات مشاهده‌شده مشتری به ترتیب آخرین بازدید. این وب‌سرویس فقط برای نمایش است و با توکن مشتری خوانده می‌شود.', $base . 'viewed-products' ); ?>
+				<?php $this->render_service_card( 'dashicons-admin-comments', 'نظرات و دیدگاه‌ها', 'نمایش دیدگاه‌های ثبت‌شده توسط مشتری، افزودن دیدگاه محصول و ویرایش یا حذف دیدگاه متعلق به همان حساب کاربری.', $base . 'comments' ); ?>
 			</div>
 		</div>
 		<?php
@@ -672,15 +684,72 @@ final class SettingsPage {
 		?>
 		<div class="app-api-products-info">
 			<div class="app-api-card app-api-products-intro">
-				<div class="app-api-card-title"><div><h2>API مشتری</h2><p>اطلاعات حساب مشتری با شناسه کاربر دریافت می‌شود. این API نیازمند توکن معتبر همان مشتری است؛ مدیر سایت نیز می‌تواند اطلاعات هر مشتری را دریافت کند.</p></div></div>
-				<div class="app-api-endpoint-list"><label><span>API مشتری</span><input type="text" dir="ltr" value="<?php echo esc_attr( $url ); ?>" readonly></label></div>
+				<div class="app-api-card-title"><div><h2>مشخصات مشتری</h2><p>این وب‌سرویس فقط مشخصات و اطلاعات شخصی مشتری را برمی‌گرداند. لیست سفارش‌ها، سبد خرید، علاقه‌مندی‌ها، محصولات مشاهده‌شده و نظرات هرکدام وب‌سرویس مستقل دارند.</p></div></div>
+				<div class="app-api-endpoint-list"><label><span>آدرس API</span><input type="text" dir="ltr" value="<?php echo esc_attr( $url ); ?>" readonly></label></div>
 			</div>
 			<div class="app-api-info-grid">
-				<div class="app-api-card app-api-info-card"><h3>احراز هویت</h3><p>توکن دریافتی از API ورود یا ثبت‌نام باید در هدر درخواست ارسال شود.</p><code dir="ltr">Authorization: Bearer [USER_ID]TOKEN</code></div>
-				<div class="app-api-card app-api-info-card"><h3>اطلاعات خروجی</h3><ul class="app-api-bullet-list"><li>مشخصات فردی، نام کاربری، ایمیل، شماره تماس و آواتار</li><li>آدرس صورتحساب و آدرس ارسال ووکامرس</li><li>لیست سفارش‌ها و اقلام هر سفارش</li><li>سبد خرید ماندگار ووکامرس</li><li>لیست علاقه‌مندی‌ها از طریق اتصال افزونه Wishlist</li><li>دانلودهای قابل دسترس مشتری</li></ul></div>
+				<div class="app-api-card app-api-info-card"><h3>متدهای قابل استفاده</h3><ul class="app-api-bullet-list"><li><code>GET</code> برای دریافت مشخصات مشتری</li><li><code>PATCH</code> یا <code>PUT</code> برای ویرایش نام، نام خانوادگی، نام نمایشی، ایمیل، شماره تماس و آدرس‌ها</li></ul></div>
+				<div class="app-api-card app-api-info-card"><h3>تعداد بخش‌های حساب</h3><p>برای نمایش Badge یا شمارنده‌ها بدون دریافت تمام لیست‌ها، پاسخ مشتری شامل این شمارنده‌هاست:</p><ul class="app-api-bullet-list"><li><code>orders_count</code></li><li><code>cart_count</code></li><li><code>favorites_count</code></li><li><code>viewed_products_count</code></li><li><code>comments_count</code></li></ul></div>
 			</div>
-			<div class="app-api-card app-api-request-example"><h3>نمونه درخواست</h3><code dir="ltr">GET <?php echo esc_html( str_replace( '{id}', '123', $url ) ); ?></code><pre dir="ltr" class="app-api-code-block">Authorization: Bearer [123]xxxxxxxx...</pre></div>
-			<div class="app-api-card app-api-info-card app-api-security-note"><h3>نکته امنیتی</h3><p>کاربر عادی فقط می‌تواند اطلاعات شناسه خودش را دریافت کند. دسترسی به مشتری دیگر با خطای 403 رد می‌شود. مدیران سایت و مدیران ووکامرس می‌توانند برای مدیریت، شناسه مشتری دیگری را نیز درخواست کنند.</p></div>
+			<div class="app-api-card app-api-request-example"><h3>احراز هویت</h3><code dir="ltr">GET <?php echo esc_html( str_replace( '{id}', '123', $url ) ); ?></code><pre dir="ltr" class="app-api-code-block">Authorization: Bearer [123]xxxxxxxx...</pre></div>
+			<div class="app-api-card app-api-info-card app-api-security-note"><h3>کنترل دسترسی</h3><p>کاربر عادی فقط می‌تواند مشخصات شناسه خودش را مشاهده یا ویرایش کند. شناسه مشتری دیگر برای کاربر عادی با خطای 403 رد می‌شود.</p></div>
+		</div>
+		<?php
+	}
+
+	private function render_account_collection_information( string $module ): void {
+		$definitions = array(
+			'orders' => array(
+				'title' => 'سفارشات',
+				'url' => '/orders',
+				'methods' => array( 'GET' => 'نمایش لیست سفارش‌های همان مشتری', 'POST' => 'ایجاد سفارش جدید با لیست محصولات', 'PATCH /orders/{id}' => 'ویرایش اطلاعات مجاز سفارش یا لغو سفارش در وضعیت قابل ویرایش' ),
+				'note' => 'شناسه مشتری در URL ارسال نمی‌شود؛ صاحب سفارش از Bearer Token تشخیص داده می‌شود.',
+			),
+			'cart' => array(
+				'title' => 'سبد خرید',
+				'url' => '/cart',
+				'methods' => array( 'GET' => 'نمایش سبد خرید آنلاین', 'POST' => 'افزودن محصول به سبد خرید', 'PATCH' => 'تغییر تعداد محصول', 'DELETE' => 'حذف محصول از سبد خرید' ),
+				'note' => 'سبد خرید در Persistent Cart ووکامرس ذخیره می‌شود تا حساب کاربر بین سایت و اپلیکیشن یک منبع اصلی داشته باشد.',
+			),
+			'favorites' => array(
+				'title' => 'علاقه‌مندی‌ها',
+				'url' => '/favorites',
+				'methods' => array( 'GET' => 'نمایش علاقه‌مندی‌های مشتری', 'POST' => 'افزودن یک محصول', 'PATCH' => 'جایگزینی لیست با آرایه ids', 'DELETE' => 'حذف یک محصول از علاقه‌مندی‌ها' ),
+				'note' => 'افزونه ابتدا Wishlist فعال فروشگاه را تشخیص می‌دهد و برای WoodMart و YITH مستقیماً از همان منبع استفاده می‌کند.',
+			),
+			'viewed-products' => array(
+				'title' => 'محصولات مشاهده‌شده',
+				'url' => '/viewed-products',
+				'methods' => array( 'GET' => 'نمایش محصولات مشاهده‌شده مشتری به ترتیب آخرین بازدید' ),
+				'note' => 'بازدید محصول برای کاربران واردشده هم در وب‌سایت و هم هنگام دریافت API جزئیات محصول ثبت می‌شود.',
+			),
+			'comments' => array(
+				'title' => 'نظرات و دیدگاه‌ها',
+				'url' => '/comments',
+				'methods' => array( 'GET' => 'نمایش دیدگاه‌های مشتری', 'POST' => 'ثبت دیدگاه جدید برای محصول', 'PATCH /comments/{id}' => 'ویرایش متن یا امتیاز دیدگاه', 'DELETE /comments/{id}' => 'حذف دیدگاه متعلق به مشتری' ),
+				'note' => 'هر کاربر فقط دیدگاه‌های متعلق به حساب خودش را می‌تواند ویرایش یا حذف کند.',
+			),
+		);
+		if ( empty( $definitions[ $module ] ) ) {
+			return;
+		}
+		$definition = $definitions[ $module ];
+		$url = rest_url( Config::REST_NAMESPACE . $definition['url'] );
+		?>
+		<div class="app-api-products-info">
+			<div class="app-api-card app-api-products-intro">
+				<div class="app-api-card-title"><div><h2><?php echo esc_html( $definition['title'] ); ?></h2><p><?php echo esc_html( $definition['note'] ); ?></p></div></div>
+				<div class="app-api-endpoint-list"><label><span>آدرس API</span><input type="text" dir="ltr" value="<?php echo esc_attr( $url ); ?>" readonly></label></div>
+			</div>
+			<div class="app-api-card app-api-info-card">
+				<h3>متدها</h3>
+				<ul class="app-api-param-list">
+					<?php foreach ( $definition['methods'] as $method => $description ) : ?>
+						<li><code><?php echo esc_html( $method ); ?></code><span><?php echo esc_html( $description ); ?></span></li>
+					<?php endforeach; ?>
+				</ul>
+			</div>
+			<div class="app-api-card app-api-request-example"><h3>هدر احراز هویت</h3><pre dir="ltr" class="app-api-code-block">Authorization: Bearer [USER_ID]TOKEN</pre></div>
 		</div>
 		<?php
 	}

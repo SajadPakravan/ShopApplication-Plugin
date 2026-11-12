@@ -6,6 +6,7 @@ use AppAPI\Config;
 use AppAPI\Services\ProductDetailBuilder;
 use AppAPI\Services\ProductFilterBuilder;
 use AppAPI\Services\ProductFormatter;
+use AppAPI\Services\CustomerService;
 use AppAPI\Services\ProductRepository;
 use AppAPI\Support\Request;
 use AppAPI\Support\Response;
@@ -100,6 +101,10 @@ final class ProductController {
 				__( 'Product not found.', 'application-api' ),
 				array( 'status' => 404 )
 			);
+		}
+
+		if ( get_current_user_id() ) {
+			( new CustomerService() )->record_viewed_product( get_current_user_id(), $product->get_id() );
 		}
 
 		$data   = $this->formatter->format_detail( $product, $this->repository->lookup( $product->get_id() ) );
