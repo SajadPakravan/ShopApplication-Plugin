@@ -14,34 +14,16 @@ final class CustomerController {
 		$this->service = $service ?: new CustomerService();
 	}
 
-	public function permissions_check( \WP_REST_Request $request ) {
-		$current_user_id = get_current_user_id();
-		if ( ! $current_user_id ) {
-			return $this->auth_error();
-		}
-
-		$requested_id = absint( $request->get_param( 'id' ) );
-		if ( $requested_id === (int) $current_user_id || current_user_can( 'manage_options' ) || current_user_can( 'manage_woocommerce' ) ) {
-			return true;
-		}
-
-		return new \WP_Error(
-			'shop_application_customer_forbidden',
-			'شما اجازه دسترسی به اطلاعات این مشتری را ندارید.',
-			array( 'status' => 403 )
-		);
-	}
-
 	public function account_permissions_check() {
 		return get_current_user_id() ? true : $this->auth_error();
 	}
 
 	public function show( \WP_REST_Request $request ) {
-		return $this->respond( $this->service->get_customer( absint( $request->get_param( 'id' ) ) ) );
+		return $this->respond( $this->service->get_customer( get_current_user_id() ) );
 	}
 
 	public function update( \WP_REST_Request $request ) {
-		return $this->respond( $this->service->update_customer( absint( $request->get_param( 'id' ) ), $this->body( $request ) ) );
+		return $this->respond( $this->service->update_customer( get_current_user_id(), $this->body( $request ) ) );
 	}
 
 	public function orders() {

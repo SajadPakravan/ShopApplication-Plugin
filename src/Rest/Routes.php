@@ -101,17 +101,17 @@ final class Routes {
 
 		register_rest_route(
 			Config::REST_NAMESPACE,
-			'/customers/(?P<id>\d+)',
+			'/customers',
 			array(
 				array(
 					'methods'             => \WP_REST_Server::READABLE,
 					'callback'            => array( $customer_controller, 'show' ),
-					'permission_callback' => array( $customer_controller, 'permissions_check' ),
+					'permission_callback' => array( $customer_controller, 'account_permissions_check' ),
 				),
 				array(
 					'methods'             => array( 'PUT', 'PATCH' ),
 					'callback'            => array( $customer_controller, 'update' ),
-					'permission_callback' => array( $customer_controller, 'permissions_check' ),
+					'permission_callback' => array( $customer_controller, 'account_permissions_check' ),
 				),
 			)
 		);

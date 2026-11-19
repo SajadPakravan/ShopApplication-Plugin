@@ -22,9 +22,9 @@ Authorization: Bearer [USER_ID]TOKEN
 
 ### Profile
 
-- `GET /customers/{id}`
-- `PATCH /customers/{id}`
-- `PUT /customers/{id}`
+- `GET /customers`
+- `PATCH /customers`
+- `PUT /customers`
 
 ### Orders
 

@@ -680,7 +680,7 @@ final class SettingsPage {
 	}
 
 	private function render_customer_information(): void {
-		$url = rest_url( Config::REST_NAMESPACE . '/customers/{id}' );
+		$url = rest_url( Config::REST_NAMESPACE . '/customers' );
 		?>
 		<div class="app-api-products-info">
 			<div class="app-api-card app-api-products-intro">
@@ -691,8 +691,8 @@ final class SettingsPage {
 				<div class="app-api-card app-api-info-card"><h3>متدهای قابل استفاده</h3><ul class="app-api-bullet-list"><li><code>GET</code> برای دریافت مشخصات مشتری</li><li><code>PATCH</code> یا <code>PUT</code> برای ویرایش نام، نام خانوادگی، نام نمایشی، ایمیل، شماره تماس و آدرس‌ها</li></ul></div>
 				<div class="app-api-card app-api-info-card"><h3>تعداد بخش‌های حساب</h3><p>برای نمایش Badge یا شمارنده‌ها بدون دریافت تمام لیست‌ها، پاسخ مشتری شامل این شمارنده‌هاست:</p><ul class="app-api-bullet-list"><li><code>orders_count</code></li><li><code>cart_count</code></li><li><code>favorites_count</code></li><li><code>viewed_products_count</code></li><li><code>comments_count</code></li></ul></div>
 			</div>
-			<div class="app-api-card app-api-request-example"><h3>احراز هویت</h3><code dir="ltr">GET <?php echo esc_html( str_replace( '{id}', '123', $url ) ); ?></code><pre dir="ltr" class="app-api-code-block">Authorization: Bearer [123]xxxxxxxx...</pre></div>
-			<div class="app-api-card app-api-info-card app-api-security-note"><h3>کنترل دسترسی</h3><p>کاربر عادی فقط می‌تواند مشخصات شناسه خودش را مشاهده یا ویرایش کند. شناسه مشتری دیگر برای کاربر عادی با خطای 403 رد می‌شود.</p></div>
+			<div class="app-api-card app-api-request-example"><h3>احراز هویت</h3><code dir="ltr">GET <?php echo esc_html( $url ); ?></code><pre dir="ltr" class="app-api-code-block">Authorization: Bearer [123]xxxxxxxx...</pre></div>
+			<div class="app-api-card app-api-info-card app-api-security-note"><h3>کنترل دسترسی</h3><p>شناسه مشتری در URL ارسال نمی‌شود. مشتری مستقیماً از Bearer Token شناسایی می‌شود و فقط می‌تواند مشخصات حساب خودش را مشاهده یا ویرایش کند.</p></div>
 		</div>
 		<?php
 	}

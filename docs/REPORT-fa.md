@@ -1,11 +1,11 @@
-# Shop Application 3.1.0
+# Shop Application 3.1.1
 
 این نسخه معماری وب‌سرویس‌های حساب کاربری را از API جزئیات مشتری جدا می‌کند.
 
 ## API مشخصات مشتری
 
-- `GET /wp-json/app-api/v1/customers/{id}` فقط مشخصات شخصی، اطلاعات تماس، آدرس‌ها و شمارنده‌های حساب را برمی‌گرداند.
-- `PATCH|PUT /wp-json/app-api/v1/customers/{id}` برای ویرایش مشخصات همان مشتری است.
+- `GET /wp-json/app-api/v1/customers` فقط مشخصات شخصی، اطلاعات تماس، آدرس‌ها و شمارنده‌های حسابِ صاحب Bearer Token را برمی‌گرداند.
+- `PATCH|PUT /wp-json/app-api/v1/customers` برای ویرایش مشخصات صاحب Bearer Token است و شناسه مشتری در URL ارسال نمی‌شود.
 - لیست‌های سفارش، سبد خرید، علاقه‌مندی، محصولات مشاهده‌شده و نظرات دیگر داخل این پاسخ قرار نمی‌گیرند.
 
 شمارنده‌های حساب: `orders_count`, `cart_count`, `favorites_count`, `viewed_products_count`, `comments_count`.
